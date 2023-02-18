@@ -32,6 +32,7 @@ type
   TSoundLiteCodecType = Cardinal;
 
   TSLPlayerState = (slsInvalid, slsInitial, slsPlaying, slsPaused, slsStopped);
+  TSLCaptureState = (slcsInvalid, slcsWaiting, slcsCapturing);
 
   { TSLAudioFrame }
 
@@ -693,6 +694,36 @@ type
     property Converter : TSLConverter read FConverter;
   end;
 
+  { TSLFileRecorder }
+
+  TSLFileRecorder = class(TOALCapture)
+  protected
+    procedure SetRecordClass(aRClass : TOALStreamDataRecorderClass); override;
+    function FileRecorder : TSLFileDataRecorder; inline;
+  public
+    constructor Create;
+
+    procedure Init(FEncProps : ISoundEncoderProps); overload;
+    procedure Init(const devicename : String;
+                          FEncProps : ISoundEncoderProps); overload;
+    procedure Init(const devicename : String;
+                         FEncProps : ISoundEncoderProps;
+                         buffersize  : Integer); overload;
+
+    function SaveToFile(const Fn : String;
+                              aConvertTo : TSoundLiteCodecType;
+                              aEncProps : ISoundEncoderProps;
+                              aComments : IVorbisComment) : Boolean; overload;
+    function SaveToStream(Str : TStream;
+                              aConvertTo : TSoundLiteCodecType;
+                              aEncProps : ISoundEncoderProps;
+                              aComments : IVorbisComment) : Boolean; overload;
+    function SaveToFile(const Fn : String;
+                              aConvertTo : TSoundLiteCodecType) : Boolean; overload;
+    function SaveToStream(Str : TStream;
+                              aConvertTo : TSoundLiteCodecType) : Boolean; overload;
+  end;
+
   { ESoundLiteException }
 
   ESoundLiteException = class(Exception)
@@ -719,6 +750,13 @@ type
   { ESLCantActivateFile }
 
   ESLCantActivateFile = class(ESoundLiteException)
+  protected
+    class function ErrorNo : Cardinal; override;
+  end;
+
+  { ESLWrongCaptureSource }
+
+  ESLWrongCaptureSource = class(ESoundLiteException)
   protected
     class function ErrorNo : Cardinal; override;
   end;
@@ -853,13 +891,121 @@ const
   ecERRORED_FILE_INFO       = 1;
   ecFILE_NOT_ACTIVATED      = 2;
   ecCAN_NOT_ACTIVATE        = 3;
-  ecMAX_ERRORS = ecCAN_NOT_ACTIVATE;
+  ecWRONG_CAPTURE_SRC       = 4;
+  ecMAX_ERRORS = ecWRONG_CAPTURE_SRC;
 
   esLISTED : Array [0..ecMAX_ERRORS] of String = (
   {ecUNKNOWN_ERROR     }     'Unknow Error.',
   {ecERRORED_FILE_INFO }     'Errored File Info. File is not loaded or malformed.',
   {ecFILE_NOT_ACTIVATED}     'File is not activated.',
-  {ecCAN_NOT_ACTIVATE}       'Can''t activate this track.');
+  {ecCAN_NOT_ACTIVATE}       'Can''t activate this track.',
+  {ecWRONG_CAPTURE_SRC}      'Incorrect capture source - must be a descendant class of TSLFileDataRecorder.');
+
+{ ESLWrongCaptureSource }
+
+class function ESLWrongCaptureSource.ErrorNo : Cardinal;
+begin
+  Result := ecWRONG_CAPTURE_SRC;
+end;
+
+{ TSLFileRecorder }
+
+procedure TSLFileRecorder.SetRecordClass(aRClass : TOALStreamDataRecorderClass);
+
+function CheckClassDescendant(aClass, aTarget : TClass) : Boolean;
+begin
+  if aClass = aTarget then
+    Exit(True) else
+  if aClass.ClassParent <> nil then
+    Result := CheckClassDescendant(aClass.ClassParent, aTarget) else
+    Exit(False);
+end;
+
+begin
+  if CheckClassDescendant(aRClass, TSLFileDataRecorder) then
+    inherited SetRecordClass(aRClass) else
+    raise ESLWrongCaptureSource.Create;
+end;
+
+function TSLFileRecorder.FileRecorder : TSLFileDataRecorder;
+begin
+  Result := TSLFileDataRecorder(Recorder);
+end;
+
+constructor TSLFileRecorder.Create;
+begin
+  inherited Create;
+  DataRecClass := TSLFileDataRecorder;
+end;
+
+procedure TSLFileRecorder.Init(FEncProps : ISoundEncoderProps);
+begin
+  Init('', FEncProps, DefaultMaxBufferSize);
+end;
+
+procedure TSLFileRecorder.Init(const devicename : String;
+  FEncProps : ISoundEncoderProps);
+begin
+  Init(devicename, FEncProps, DefaultMaxBufferSize);
+end;
+
+procedure TSLFileRecorder.Init(const devicename : String;
+  FEncProps : ISoundEncoderProps; buffersize : Integer);
+var
+  freq, channels : Cardinal;
+  oalfmt : TOALFormat;
+  ss : TSoundSampleSize;
+begin
+  freq := FEncProps.Frequency;
+  channels := FEncProps.Channels;
+  ss := FEncProps.SampleSize;
+
+  oalfmt := TOpenAL.OALFormat(channels, TOGLSound.SampleSizeToBitdepth(ss));
+
+  Init(devicename, oalfmt, freq, buffersize);
+end;
+
+function TSLFileRecorder.SaveToFile(const Fn : String;
+  aConvertTo : TSoundLiteCodecType; aEncProps : ISoundEncoderProps;
+  aComments : IVorbisComment) : Boolean;
+begin
+  if Assigned(FileRecorder) then
+  begin
+    FileRecorder.EncoderProps := aEncProps;
+    FileRecorder.Comments := aComments;
+    Result := FileRecorder.SaveToFile(Fn, aConvertTo);
+  end else
+    Result := false;
+end;
+
+function TSLFileRecorder.SaveToStream(Str : TStream;
+  aConvertTo : TSoundLiteCodecType; aEncProps : ISoundEncoderProps;
+  aComments : IVorbisComment) : Boolean;
+begin
+  if Assigned(FileRecorder) then
+  begin
+    FileRecorder.EncoderProps := aEncProps;
+    FileRecorder.Comments := aComments;
+    Result := FileRecorder.SaveToStream(Str, aConvertTo);
+  end else
+    Result := false;
+end;
+
+function TSLFileRecorder.SaveToFile(const Fn : String;
+  aConvertTo : TSoundLiteCodecType) : Boolean;
+begin
+  if Assigned(FileRecorder) then
+    Result := FileRecorder.SaveToFile(Fn, aConvertTo) else
+    Result := false;
+end;
+
+function TSLFileRecorder.SaveToStream(Str : TStream;
+  aConvertTo : TSoundLiteCodecType) : Boolean;
+begin
+  if Assigned(FileRecorder) then
+    Result := FileRecorder.SaveToStream(Str, aConvertTo) else
+    Result := false;
+end;
 
 { TSLFileDataRecorder }
 
