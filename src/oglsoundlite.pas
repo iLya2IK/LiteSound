@@ -694,15 +694,33 @@ type
     property Converter : TSLConverter read FConverter;
   end;
 
-  { TSLFileRecorder }
+  { TSLCapture }
 
-  TSLFileRecorder = class(TOALCapture)
-  protected
-    procedure SetRecordClass(aRClass : TOALStreamDataRecorderClass); override;
-    function FileRecorder : TSLFileDataRecorder; inline;
+  generic TSLCapture<T> = class(TThreadSafeObject)
+  private
+    FCapturer : TOALCapture;
+    function GetStatus : TSLCaptureState;
   public
     constructor Create;
+    destructor Destroy; override;
 
+    procedure Start;
+    procedure Proceed;
+    procedure Pause;
+    procedure Stop;
+
+    function TotalSamplesCaptured : Integer;
+    function TotalCaptured : ISoundFrameSize;
+
+    function Recorder : T; inline;
+
+    property Status : TSLCaptureState read GetStatus;
+  end;
+
+  { TSLFileRecorder }
+
+  TSLFileRecorder = class(specialize TSLCapture<TSLFileDataRecorder>)
+  public
     procedure Init(FEncProps : ISoundEncoderProps); overload;
     procedure Init(const devicename : String;
                           FEncProps : ISoundEncoderProps); overload;
@@ -901,6 +919,103 @@ const
   {ecCAN_NOT_ACTIVATE}       'Can''t activate this track.',
   {ecWRONG_CAPTURE_SRC}      'Incorrect capture source - must be a descendant class of TSLFileDataRecorder.');
 
+{ TSLCapture }
+
+function TSLCapture.GetStatus : TSLCaptureState;
+begin
+  Lock;
+  try
+    Result := TSLCaptureState(FCapturer.Status);
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCapture.Recorder : T;
+begin
+  Lock;
+  try
+    Result := T(FCapturer.Recorder);
+  finally
+    UnLock;
+  end;
+end;
+
+constructor TSLCapture.Create;
+begin
+  inherited Create;
+  FCapturer := TOALCapture.Create;
+  FCapturer.DataRecClass := T;
+end;
+
+destructor TSLCapture.Destroy;
+begin
+  FCapturer.Free;
+  inherited Destroy;
+end;
+
+procedure TSLCapture.Start;
+begin
+  Lock;
+  try
+    FCapturer.Start;
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCapture.Proceed;
+begin
+  Lock;
+  try
+    FCapturer.Proceed;
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCapture.Pause;
+begin
+  Lock;
+  try
+    FCapturer.Pause;
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCapture.Stop;
+begin
+  Lock;
+  try
+    FCapturer.Stop;
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCapture.TotalSamplesCaptured : Integer;
+begin
+  Lock;
+  try
+    Result := FCapturer.TotalSamplesCaptured;
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCapture.TotalCaptured : ISoundFrameSize;
+begin
+  Lock;
+  try
+    Result := TOGLSound.NewEmptyFrame(FCapturer.Frequency, FCapturer.Channels,
+                                      TOGLSound.BitdepthToSampleSize(FCapturer.BitsPerSample));
+    Result.IncSamples(FCapturer.TotalSamplesCaptured);
+  finally
+    UnLock;
+  end;
+end;
+
 { ESLWrongCaptureSource }
 
 class function ESLWrongCaptureSource.ErrorNo : Cardinal;
@@ -910,43 +1025,15 @@ end;
 
 { TSLFileRecorder }
 
-procedure TSLFileRecorder.SetRecordClass(aRClass : TOALStreamDataRecorderClass);
-
-function CheckClassDescendant(aClass, aTarget : TClass) : Boolean;
-begin
-  if aClass = aTarget then
-    Exit(True) else
-  if aClass.ClassParent <> nil then
-    Result := CheckClassDescendant(aClass.ClassParent, aTarget) else
-    Exit(False);
-end;
-
-begin
-  if CheckClassDescendant(aRClass, TSLFileDataRecorder) then
-    inherited SetRecordClass(aRClass) else
-    raise ESLWrongCaptureSource.Create;
-end;
-
-function TSLFileRecorder.FileRecorder : TSLFileDataRecorder;
-begin
-  Result := TSLFileDataRecorder(Recorder);
-end;
-
-constructor TSLFileRecorder.Create;
-begin
-  inherited Create;
-  DataRecClass := TSLFileDataRecorder;
-end;
-
 procedure TSLFileRecorder.Init(FEncProps : ISoundEncoderProps);
 begin
-  Init('', FEncProps, DefaultMaxBufferSize);
+  Init('', FEncProps, FCapturer.DefaultMaxBufferSize);
 end;
 
 procedure TSLFileRecorder.Init(const devicename : String;
   FEncProps : ISoundEncoderProps);
 begin
-  Init(devicename, FEncProps, DefaultMaxBufferSize);
+  Init(devicename, FEncProps, FCapturer.DefaultMaxBufferSize);
 end;
 
 procedure TSLFileRecorder.Init(const devicename : String;
@@ -962,18 +1049,18 @@ begin
 
   oalfmt := TOpenAL.OALFormat(channels, TOGLSound.SampleSizeToBitdepth(ss));
 
-  Init(devicename, oalfmt, freq, buffersize);
+  FCapturer.Init(devicename, oalfmt, freq, buffersize);
 end;
 
 function TSLFileRecorder.SaveToFile(const Fn : String;
   aConvertTo : TSoundLiteCodecType; aEncProps : ISoundEncoderProps;
   aComments : IVorbisComment) : Boolean;
 begin
-  if Assigned(FileRecorder) then
+  if Assigned(Recorder) then
   begin
-    FileRecorder.EncoderProps := aEncProps;
-    FileRecorder.Comments := aComments;
-    Result := FileRecorder.SaveToFile(Fn, aConvertTo);
+    Recorder.EncoderProps := aEncProps;
+    Recorder.Comments := aComments;
+    Result := Recorder.SaveToFile(Fn, aConvertTo);
   end else
     Result := false;
 end;
@@ -982,11 +1069,11 @@ function TSLFileRecorder.SaveToStream(Str : TStream;
   aConvertTo : TSoundLiteCodecType; aEncProps : ISoundEncoderProps;
   aComments : IVorbisComment) : Boolean;
 begin
-  if Assigned(FileRecorder) then
+  if Assigned(Recorder) then
   begin
-    FileRecorder.EncoderProps := aEncProps;
-    FileRecorder.Comments := aComments;
-    Result := FileRecorder.SaveToStream(Str, aConvertTo);
+    Recorder.EncoderProps := aEncProps;
+    Recorder.Comments := aComments;
+    Result := Recorder.SaveToStream(Str, aConvertTo);
   end else
     Result := false;
 end;
@@ -994,16 +1081,16 @@ end;
 function TSLFileRecorder.SaveToFile(const Fn : String;
   aConvertTo : TSoundLiteCodecType) : Boolean;
 begin
-  if Assigned(FileRecorder) then
-    Result := FileRecorder.SaveToFile(Fn, aConvertTo) else
+  if Assigned(Recorder) then
+    Result := Recorder.SaveToFile(Fn, aConvertTo) else
     Result := false;
 end;
 
 function TSLFileRecorder.SaveToStream(Str : TStream;
   aConvertTo : TSoundLiteCodecType) : Boolean;
 begin
-  if Assigned(FileRecorder) then
-    Result := FileRecorder.SaveToStream(Str, aConvertTo) else
+  if Assigned(Recorder) then
+    Result := Recorder.SaveToStream(Str, aConvertTo) else
     Result := false;
 end;
 

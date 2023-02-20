@@ -1,0 +1,188 @@
+object Form1: TForm1
+  Left = 555
+  Height = 371
+  Top = 168
+  Width = 342
+  BorderStyle = bsDialog
+  Caption = 'Converter'
+  ClientHeight = 371
+  ClientWidth = 342
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  LCLVersion = '2.2.4.0'
+  object ProgressBar1: TProgressBar
+    Left = 10
+    Height = 20
+    Top = 288
+    Width = 316
+    Smooth = True
+    TabOrder = 0
+    BarShowText = True
+  end
+  object Button1: TButton
+    Left = 96
+    Height = 25
+    Top = 336
+    Width = 158
+    Caption = 'Convert'
+    OnClick = Button1Click
+    TabOrder = 1
+  end
+  object StatusLabel: TLabel
+    Left = 8
+    Height = 19
+    Top = 312
+    Width = 54
+    Caption = 'Waiting...'
+    ParentColor = False
+  end
+  object Panel1: TPanel
+    Left = 0
+    Height = 272
+    Top = 0
+    Width = 342
+    Align = alTop
+    BevelOuter = bvNone
+    ClientHeight = 272
+    ClientWidth = 342
+    TabOrder = 2
+    object Label1: TLabel
+      Left = 8
+      Height = 19
+      Top = 4
+      Width = 84
+      Caption = 'File to convert'
+      ParentColor = False
+    end
+    object Label2: TLabel
+      Left = 8
+      Height = 19
+      Top = 72
+      Width = 117
+      Caption = 'Converted filename'
+      ParentColor = False
+    end
+    object EncodedFileEd: TEdit
+      Left = 10
+      Height = 36
+      Top = 96
+      Width = 316
+      TabOrder = 0
+      Text = 'output'
+    end
+    object SrcFileNameEd: TFileNameEdit
+      Left = 10
+      Height = 36
+      Top = 24
+      Width = 318
+      FilterIndex = 0
+      HideDirectories = False
+      ButtonWidth = 32
+      NumGlyphs = 1
+      MaxLength = 0
+      TabOrder = 1
+    end
+    object CodecCh: TComboBox
+      Left = 8
+      Height = 31
+      Top = 160
+      Width = 117
+      ItemHeight = 0
+      ItemIndex = 0
+      Items.Strings = (
+        'FLAC native'
+        'FLAC OGG'
+        'Opus OGG'
+        'Vorbis OGG'
+        'RIFF WAVE'
+      )
+      Style = csDropDownList
+      TabOrder = 2
+      Text = 'FLAC native'
+    end
+    object Label3: TLabel
+      Left = 8
+      Height = 19
+      Top = 143
+      Width = 49
+      Caption = 'Encoder'
+      ParentColor = False
+    end
+    object Label4: TLabel
+      Left = 133
+      Height = 19
+      Top = 141
+      Width = 155
+      Caption = 'Quality/Compression level'
+      ParentColor = False
+    end
+    object QualityTrack: TTrackBar
+      Left = 128
+      Height = 51
+      Top = 160
+      Width = 134
+      Position = 5
+      TickStyle = tsManual
+      TabOrder = 3
+    end
+    object AutoExtCh: TCheckBox
+      Left = 160
+      Height = 23
+      Top = 72
+      Width = 117
+      Caption = 'Auto extension'
+      Checked = True
+      State = cbChecked
+      TabOrder = 4
+    end
+    object Label5: TLabel
+      Left = 132
+      Height = 19
+      Top = 212
+      Width = 75
+      Caption = 'Bitrate, kbps'
+      ParentColor = False
+    end
+    object Label6: TLabel
+      Left = 8
+      Height = 19
+      Top = 212
+      Width = 78
+      Caption = 'Bitrate mode'
+      ParentColor = False
+    end
+    object BitrateModeCh: TComboBox
+      Left = 8
+      Height = 31
+      Top = 240
+      Width = 117
+      ItemHeight = 0
+      ItemIndex = 1
+      Items.Strings = (
+        'Const'
+        'Variable'
+      )
+      Style = csDropDownList
+      TabOrder = 5
+      Text = 'Variable'
+    end
+    object BitrateTrack: TTrackBar
+      Left = 128
+      Height = 51
+      Top = 221
+      Width = 198
+      Max = 256
+      Min = 20
+      Position = 128
+      TickStyle = tsManual
+      TabOrder = 6
+    end
+  end
+  object Timer1: TTimer
+    Enabled = False
+    Interval = 250
+    OnTimer = Timer1Timer
+    Left = 296
+    Top = 256
+  end
+end
