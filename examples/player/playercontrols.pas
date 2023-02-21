@@ -522,12 +522,15 @@ begin
     Brush.Style := bsSolid;
     Brush.Color := Color;
     Pen.Style := psClear;
-    Rectangle(0,0,Width,Height);
+    Rectangle(0,0,Self.Width,Self.Height);
 
-    r := Rect(4,0,Width,Height);
+    Brush.Style := bsClear;
+    Font.Color := clBtnText;
+
+    r := Rect(4,0,Self.Width,Self.Height);
     S := TSoundLite.TimeToStr(FCurTime);
     DrawText(Canvas.Handle, pchar(S), Length(S), r, DT_LEFT or DT_VCENTER or DT_SINGLELINE);
-    r := Rect(0,0,Width-4,Height);
+    r := Rect(0,0,Self.Width-4,Self.Height);
     S := TSoundLite.TimeToStr(FTotalTime);
     DrawText(Canvas.Handle, pchar(S), Length(S), r, DT_RIGHT or DT_VCENTER or DT_SINGLELINE);
 
@@ -560,7 +563,7 @@ begin
         Rectangle(r);
 
         r.Top := 2;
-        r.Bottom := Height-2;
+        r.Bottom := Self.Height-2;
         r.Left := FBarRect.Left + p - 10;
         r.Right := FBarRect.Left + p;
         Details := ThemeServices.GetElementDetails(tbPushButtonNormal);
@@ -570,7 +573,7 @@ begin
         begin
           sp := Round(FSelectTime / maxt * FBarRect.Width);
           r.Top := 2;
-          r.Bottom := Height-2;
+          r.Bottom := Self.Height-2;
           r.Left := FBarRect.Left + sp - 5;
           r.Right := FBarRect.Left + sp + 5;
           Details := ThemeServices.GetElementDetails(tbPushButtonHot);

@@ -117,6 +117,10 @@ resourcestring
   SVendor     = 'Vendor';
   SCodec      = 'Codec';
 
+{$ifdef Windows}
+const sLibsPath = '..\libs\';
+{$endif}
+
 {$R *.lfm}
 
 { TForm1 }
@@ -362,6 +366,19 @@ end;
 
 procedure TForm1.FormCreate(Sender : TObject);
 begin
+  {$ifdef Windows}
+  TSoundLite.SetLibPath(sLibsPath, [slcOpenAL, slcOGG, slcFLAC,
+                                    slcOpus, slcVorbis]);
+  TSoundLite.SetLibNames(['soft_oal.dll'], true, slcOpenAL);
+  TSoundLite.SetLibNames(['libogg-0.dll'], true, slcOGG);
+  TSoundLite.SetLibNames(['libFLAC-8.dll'], true, slcFLAC);
+  TSoundLite.SetLibNames(['libopus-0.dll',
+                          'libopusenc-0.dll',
+                          'libopusfile-0.dll'], true, slcOpus);
+  TSoundLite.SetLibNames(['libvorbis-0.dll',
+                          'libvorbisenc-2.dll',
+                          'libvorbisfile-3.dll'], true, slcVorbis);
+  {$endif}
   TSoundLite.InitSoundLite;
 
   FPlayerThread := TSLPlayer.StartThread;

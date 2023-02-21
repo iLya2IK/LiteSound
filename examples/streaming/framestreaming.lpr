@@ -48,6 +48,9 @@ const // the name of source opus-ogg file
       cHeapTrace = 'heaptrace.trc';
       {$endif}
 const cSL_Components : TSoundLiteComponents = [slcOGG, slcFLAC, slcOpus, slcVorbis];
+{$ifdef Windows}
+const sLibsPath = '..\libs\';
+{$endif}
 
 var
   audiof : TSLTrackFile;    // interface to decode audio file
@@ -123,7 +126,15 @@ begin
 
   // Initialize opus, opusenc, opusfile interfaces - load libraries
   {$ifdef Windows}
-  TSoundLite.SetLibPath('..\libs\', cSL_Components);
+  TSoundLite.SetLibPath(sLibsPath, cSL_Components);
+  TSoundLite.SetLibNames(['libogg-0.dll'], true, slcOGG);
+  TSoundLite.SetLibNames(['libFLAC-8.dll'], true, slcFLAC);
+  TSoundLite.SetLibNames(['libopus-0.dll',
+                          'libopusenc-0.dll',
+                          'libopusfile-0.dll'], true, slcOpus);
+  TSoundLite.SetLibNames(['libvorbis-0.dll',
+                          'libvorbisenc-2.dll',
+                          'libvorbisfile-3.dll'], true, slcVorbis);
   {$endif}
   TSoundLite.InitSoundLite(cSL_Components);
   Files := TStringList.Create;
@@ -184,7 +195,7 @@ begin
 
     oggf := TSLOutputFile.Create;
     try
-      if oggf.SaveToFile(cOutputFile + TSoundLite.GetFileExt(cOutpuFileFormat),
+      if oggf.SaveToFile(cOutputFile + TSoundLite.GetFileExt(cOutputFileFormat),
                                      cOutputFileFormat, aEncProp, nil) then
       begin
         pack_dec := TSLFramedDecoder.Create(cFrameFormat, aEncProp);

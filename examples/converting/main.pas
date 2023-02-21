@@ -64,6 +64,10 @@ implementation
 const
   cInitialDir = '..' + PathDelim + 'media' + PathDelim;
 
+{$ifdef Windows}
+const sLibsPath = '..\libs\';
+{$endif}
+
 {$R *.lfm}
 
 { TForm1 }
@@ -135,6 +139,20 @@ begin
   FTotalSamples := TThreadInteger.Create(0);
   FConvertedSamples := TThreadInteger.Create(0);
   SrcFileNameEd.InitialDir := cInitialDir;
+
+  {$ifdef Windows}
+  TSoundLite.SetLibPath(sLibsPath, [slcOGG, slcFLAC,
+                                    slcOpus, slcVorbis]);
+  TSoundLite.SetLibNames(['libogg-0.dll'], true, slcOGG);
+  TSoundLite.SetLibNames(['libFLAC-8.dll'], true, slcFLAC);
+  TSoundLite.SetLibNames(['libopus-0.dll',
+                          'libopusenc-0.dll',
+                          'libopusfile-0.dll'], true, slcOpus);
+  TSoundLite.SetLibNames(['libvorbis-0.dll',
+                          'libvorbisenc-2.dll',
+                          'libvorbisfile-3.dll'], true, slcVorbis);
+  {$endif}
+
   TSoundLite.InitSoundLite([slcOGG, slcFLAC, slcOpus, slcVorbis]);
 end;
 
