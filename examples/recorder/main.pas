@@ -59,6 +59,10 @@ resourcestring
   sNotReady         = 'Not ready';
   sCaptured         = 'Captured : %s';
 
+{$ifdef Windows}
+const sLibsPath = '..\libs\';
+{$endif}
+
 {$R *.lfm}
 
 { TForm1 }
@@ -67,6 +71,20 @@ procedure TForm1.FormCreate(Sender : TObject);
 var
   DSL : TStringList;
 begin
+  {$ifdef Windows}
+  TSoundLite.SetLibPath(sLibsPath, [slcOpenAL, slcOGG, slcFLAC,
+                                    slcOpus, slcVorbis]);
+  TSoundLite.SetLibNames(['soft_oal.dll'], true, slcOpenAL);
+  TSoundLite.SetLibNames(['libogg-0.dll'], true, slcOGG);
+  TSoundLite.SetLibNames(['libFLAC-8.dll'], true, slcFLAC);
+  TSoundLite.SetLibNames(['libopus-0.dll',
+                          'libopusenc-0.dll',
+                          'libopusfile-0.dll'], true, slcOpus);
+  TSoundLite.SetLibNames(['libvorbis-0.dll',
+                          'libvorbisenc-2.dll',
+                          'libvorbisfile-3.dll'], true, slcVorbis);
+  {$endif}
+
   TSoundLite.InitSoundLite;
 
   DSL := TOpenAL.ListOfAllCapureDevices;
@@ -99,6 +117,9 @@ begin
     StartStopRecordBtn.Caption := sNotReady;
     Label3.Caption := sCaptureNoDevices;
   end;
+
+  if Assigned(DSL) then
+    DSL.Free;
 end;
 
 procedure TForm1.FormDestroy(Sender : TObject);
