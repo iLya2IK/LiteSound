@@ -66,6 +66,7 @@ object Form1: TForm1
         'Opus OGG'
         'Vorbis OGG'
         'WAV'
+        'WAV OGG'
       )
       Style = csDropDownList
       TabOrder = 1
@@ -108,6 +109,8 @@ object Form1: TForm1
     ParentColor = False
   end
   object Timer1: TTimer
+    Enabled = False
+    Interval = 250
     OnTimer = Timer1Timer
     Left = 272
     Top = 128

@@ -152,6 +152,7 @@ begin
     2: aCodec := CODEC_OGG_OPUS;
     3: aCodec := CODEC_OGG_VORBIS;
     4: aCodec := CODEC_WAV;
+    5: aCodec := CODEC_OGG_WAV;
     else
       aCodec := CODEC_UNKNOWN;
     end;

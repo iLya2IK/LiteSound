@@ -1891,7 +1891,7 @@ begin
     if FEncCodec in [TSoundLite.CODEC_OGG_OPUS,
                      TSoundLite.CODEC_OGG_FLAC,
                      TSoundLite.CODEC_FLAC,
-                     TSoundLite.CODEC_WAV,
+                     TSoundLite.CODEC_WAV, TSoundLite.CODEC_OGG_WAV,
                      TSoundLite.CODEC_OGG_VORBIS] then
       FEncoder.WriteHeader(nil);
 
@@ -1930,6 +1930,12 @@ begin
     if FEncCodec = TSoundLite.CODEC_WAV then
     begin
       FEncoder := TWAVE.NewStreamEncoder(FCurEncFrame,
+                                              [sdpForceNotSeekable, sdpWriteOnly],
+                                              FEncProps, nil);
+    end else
+    if FEncCodec = TSoundLite.CODEC_OGG_WAV then
+    begin
+      FEncoder := TWAVE.NewOggStreamEncoder(FCurEncFrame,
                                               [sdpForceNotSeekable, sdpWriteOnly],
                                               FEncProps, nil);
     end else
@@ -3893,6 +3899,9 @@ begin
   if aCodecType = TSoundLite.CODEC_WAV then
     Result := TRIFFWaveFile.Create
   else
+  if aCodecType = TSoundLite.CODEC_OGG_WAV then
+    Result := TOggWaveFile.Create
+  else
     Result := nil;
 end;
 
@@ -4257,7 +4266,7 @@ begin
     Result := TOpus.NewEncComment(aVorbisSrc);
   CODEC_OGG_VORBIS:
     Result := TVorbis.NewComment(aVorbisSrc);
-  CODEC_WAV:
+  CODEC_WAV, CODEC_OGG_WAV:
     Result := TWAVE.NewComment(aVorbisSrc);
   else
     Result := nil;
