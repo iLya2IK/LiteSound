@@ -127,7 +127,8 @@ begin
   FConvertThread.StartConvert(SrcFileNameEd.FileName,
                               S,
                               aCodecType,
-                              aEncProps);
+                              aEncProps,
+                              nil, nil);
 
   Timer1.Enabled := true;
 end;

@@ -161,9 +161,9 @@ type
 
   TSLFramedDataSource = class(TOALStreamDataSource)
   private
-    FInputFrames   : TThreadSafeFastSeq;
-    FCurFrame      : TSLAudioFrame;
-    FFramedDecoder : TSLFramedDecoder;
+    FInputFrames         : TThreadSafeFastSeq;
+    FCurFrame            : TSLAudioFrame;
+    FFramedDecoder       : TSLFramedDecoder;
     FMaxFrameBufferingMs : Integer;
     FMaxFrameBufferingStarveMs : Integer;
     FMaxFramesCount : Integer;
@@ -213,7 +213,7 @@ type
                          buffers, buffersize  : Integer); overload;
     procedure Init(aCodec : TSoundLiteCodecType; aProps : ISoundProps); overload;
 
-    property FramedSource : TSLFramedDataSource read GetFramedDataSource;
+    property  FramedSource : TSLFramedDataSource read GetFramedDataSource;
   end;
 
   TSLPlayer = class;
@@ -245,7 +245,7 @@ type
     function SampleSize   : TSoundSampleSize; virtual; abstract;
     function Channels     : Cardinal; virtual; abstract;
     function Version      : Cardinal; virtual; abstract;
-    function TimeTotal    : Double;  virtual; abstract;
+    function TimeTotal    : Double;   virtual; abstract;
     function SamplesTotal : Integer;  virtual; abstract;
   end;
 
@@ -1296,6 +1296,8 @@ begin
       if Assigned(FAccumDuration) then
         FAccumDuration.Inc(aDecoded) else
         FAccumDuration := aDecoded;
+      if FFramedDecoder.DecodedFrames.Count > MaxFramesCount then
+        FFramedDecoder.DecodedFrames.Erase(FFramedDecoder.DecodedFrames.ListBegin);
     end;
   end;
 end;

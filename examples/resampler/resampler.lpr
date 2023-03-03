@@ -45,8 +45,8 @@ begin
     aSamplesCount := aFrame.AsSamples;
     for i := 0 to aSamplesCount-1 do
     begin
-      InpBuffer[i*CHANNELS]   := Round(32767.0 * Cos(double(i) / aSamplesCount * 2.0 * Pi));
-      InpBuffer[i*CHANNELS+1] := Round(32767.0 * Sin(double(i) / aSamplesCount * 2.0 * Pi));
+      InpBuffer[i*CHANNELS]   := Round(32767.0 * Cos(double(i) / aSamplesCount * 8.0 * Pi));
+      InpBuffer[i*CHANNELS+1] := Round(32767.0 * Sin(double(i) / aSamplesCount * 8.0 * Pi));
     end;
 
     { Initializing the resampler. }
@@ -61,7 +61,7 @@ begin
                                     values that are the results of the speex
                                     algorithm. these zeros can be skipped to
                                     align the output data with the input data.}
-                                   [TSoundLite.PROP_SPEEX_SAMPLER_SKIP_ZEROS, false]));
+                                   [TSoundLite.PROP_SPEEX_SAMPLER_SKIP_ZEROS, true]));
     { Send the entire input data to the resampler }
     aResampler.WriteInterleave(InpBuffer, aFrame);
     { Write the result of the resampler operation in the receiving buffer }
