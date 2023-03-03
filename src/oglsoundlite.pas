@@ -157,6 +157,65 @@ type
     property TotalDuration : ISoundFrameSize read GetTotalDuration;
   end;
 
+  { TSLFramedDataSource }
+
+  TSLFramedDataSource = class(TOALStreamDataSource)
+  private
+    FInputFrames   : TThreadSafeFastSeq;
+    FCurFrame      : TSLAudioFrame;
+    FFramedDecoder : TSLFramedDecoder;
+    FMaxFrameBufferingMs : Integer;
+    FMaxFrameBufferingStarveMs : Integer;
+    FMaxFramesCount : Integer;
+    FAccumDuration  : ISoundFrameSize;
+    procedure SetMaxFrameBufferingMs(AValue : Integer);
+    procedure SetMaxFrameBufferingStarveMs(AValue : Integer);
+  public
+    constructor Create(aCodec : TSoundLiteCodecType; aProps : ISoundProps);
+      overload;
+    procedure  Init(aCodec : TSoundLiteCodecType; aProps : ISoundProps);
+    destructor Destroy; override;
+
+    function LoadFromFile(const {%H-}Fn : String) : Boolean; override;
+    function LoadFromStream({%H-}Str : TStream) : Boolean; override;
+
+    procedure Process;
+    procedure PushFrame(aFrame : TStream);
+    function  Empty : Boolean;
+    function  Cached : Boolean;
+    function  Starving : Boolean;
+
+    function ReadChunk(const Buffer : Pointer;
+                         {%H-}Pos : Int64;
+                         Sz  : Integer;
+                         {%H-}isloop : Boolean;
+                         var fmt : TOALFormat;
+                         var freq : Cardinal) : Integer; override;
+
+    property MaxFramesCount : Integer read FMaxFramesCount write FMaxFramesCount;
+    property MaxFrameBufferingMs : Integer read FMaxFrameBufferingMs write SetMaxFrameBufferingMs;
+    property MaxFrameBufferingStarveMs : Integer read FMaxFrameBufferingStarveMs write SetMaxFrameBufferingStarveMs;
+  end;
+
+  { TSLFramedPlayer }
+
+  TSLFramedPlayer = class(TOALPlayer)
+  private
+    function GetFramedDataSource : TSLFramedDataSource;
+  public
+    constructor Create;
+    procedure Init(const devicename : String;
+                         aCodec : TSoundLiteCodecType; aProps : ISoundProps); overload;
+    procedure Init(const devicename : String;
+                         aCodec : TSoundLiteCodecType; aProps : ISoundProps;
+                           buffers, buffersize  : Integer); overload;
+    procedure Init(aCodec : TSoundLiteCodecType; aProps : ISoundProps;
+                         buffers, buffersize  : Integer); overload;
+    procedure Init(aCodec : TSoundLiteCodecType; aProps : ISoundProps); overload;
+
+    property FramedSource : TSLFramedDataSource read GetFramedDataSource;
+  end;
+
   TSLPlayer = class;
   TSLPlayList = class;
 
@@ -613,6 +672,32 @@ type
     property Player : TSLPlayer read FPlayer;
   end;
 
+  { TSoundSpeexResampler }
+
+  TSoundSpeexResampler = class(TSoundAbstractBufferedResampler)
+  private
+    FResample : pSpeexResamplerState;
+    FReady : Boolean;
+  protected
+    function  Init(aOutBufferSize : ISoundFrameSize;
+                        aInRate : Cardinal; aQuality : Integer;
+                        aProps : ISoundProps) : Boolean; override;
+    procedure Done; override;
+    function DoWrite(aInBuffer, aOutBuffer  : Pointer;
+                                aSamples : Cardinal) : Cardinal; override;
+    function DoWriteInterleave(aInBuffer, aOutBuffer  : Pointer;
+                                aSamples : Cardinal) : Cardinal; override;
+  public
+    function  Flush : ISoundFrameSize; override;
+
+    procedure SetInputRate(aRate : Cardinal); override;
+    procedure SetQuality(aValue : Integer); override;
+
+    function Ready : Boolean; override;
+    function InputRate : Cardinal; override;
+    function Quality : Integer; override;
+  end;
+
   TSLConvertMode = (cmodOneStep, cmodPull);
   TOnConvertProgress = procedure (Sender : TObject;
                        const aConverted, aTotal : ISoundFrameSize;
@@ -625,6 +710,7 @@ type
     FOnProgress : TOnConvertProgress;
     FSrc : TSLTrackFile;
     FDst : TSLOutputFile;
+    FResampler : ISoundResampler;
     //
     FMode        : TSLConvertMode;
     FConverting  : Boolean;
@@ -652,13 +738,15 @@ type
                          aMode : TSLConvertMode;
                          aConvertTo : TSoundLiteCodecType;
                          aEncProps : ISoundEncoderProps;
+                         aResampler : ISoundResampler;
                          aComments : ISoundComment = nil) : Boolean;
 
     function DoConvert(const aSrcFile, aDstFile : String;
-                         aMode : TSLConvertMode;
-                         aConvertTo : TSoundLiteCodecType;
-                         aEncProps  : ISoundEncoderProps;
-                         aComments  : ISoundComment = nil) : Boolean;
+                        aMode : TSLConvertMode;
+                        aConvertTo : TSoundLiteCodecType;
+                        aEncProps : ISoundEncoderProps;
+                        aResampler : ISoundResampler;
+                        aComments : ISoundComment) : Boolean;
 
     // pull mode methods
     // 0  - can continue
@@ -687,7 +775,8 @@ type
     function StartConvert(const aSrcFile, aDstFile : String;
                           aConvertTo : TSoundLiteCodecType;
                           aEncProps  : ISoundEncoderProps;
-                          aComments  : ISoundComment = nil) : Boolean;
+                          aResampler : ISoundResampler;
+                          aComments  : ISoundComment = nil) : Boolean; overload;
 
     procedure Execute; override;
 
@@ -793,11 +882,11 @@ type
     class procedure SetLibNames(const aDLLNames : Array of String;
                                 aIgnoreDefault : Boolean;
                                 aComponent : TSoundLiteComponent);
-    class procedure InitSoundLite(const aDLLPath : UTF8String;
-                                  aComponents : TSoundLiteComponents); overload;
-    class procedure InitSoundLite(const aDLLPath : UTF8String); overload;
-    class procedure InitSoundLite(aComponents : TSoundLiteComponents); overload;
-    class procedure InitSoundLite; overload;
+    class function InitSoundLite(const aDLLPath : UTF8String;
+                                  aComponents : TSoundLiteComponents) : Boolean; overload;
+    class function InitSoundLite(const aDLLPath : UTF8String) : Boolean; overload;
+    class function InitSoundLite(aComponents : TSoundLiteComponents) : Boolean; overload;
+    class function InitSoundLite : Boolean; overload;
 
     class function Loaded(aComponent : TSoundLiteComponent) : Boolean; overload;
     class function Loaded(aComponents : TSoundLiteComponents) : Boolean; overload;
@@ -832,18 +921,29 @@ type
     const JSON_CODEC_TYPE : String = 'codect';
     const JSON_FILE_NAME  : String = 'filename';
 
-    // encoder/decoder properties
+    // encoder/decoder/sampler properties
+
+    // library local props
+    // framed encoder/decoder
+    const PROP_CHUNK_SIZE                = $10000;
+    const PROP_MAX_FRAME_SIZE            = $20000;
+    // Speex sampler
+    const PROP_SPEEX_SAMPLER_SKIP_ZEROS  = $30000;
+
     // Common props
     const PROP_CHANNELS      = TOGLSound.PROP_CHANNELS;
     const PROP_FREQUENCY     = TOGLSound.PROP_FREQUENCY;
     const PROP_SAMPLE_SIZE   = TOGLSound.PROP_SAMPLE_SIZE;
-    // framed encoder/decoder
-    const PROP_CHUNK_SIZE     = $01000;
-    const PROP_MAX_FRAME_SIZE = $02000;
     // common encoder
     const ENC_PROP_MODE          = TOGLSound.PROP_MODE;
     const ENC_PROP_BITRATE       = TOGLSound.PROP_BITRATE;
     const ENC_PROP_QUALITY       = TOGLSound.PROP_QUALITY;
+    // Common sampler
+    const PROP_SAMPLER_OUT_SIZE_BYTES   = TOGLSound.PROP_SAMPLER_OUT_SIZE_BYTES;
+    const PROP_SAMPLER_OUT_SIZE_SAMPLES = TOGLSound.PROP_SAMPLER_OUT_SIZE_SAMPLES;
+    const PROP_SAMPLER_OUT_SIZE_MS      = TOGLSound.PROP_SAMPLER_OUT_SIZE_MS;
+    const PROP_SAMPLER_INPUT_RATE       = TOGLSound.PROP_SAMPLER_INPUT_RATE;
+    const PROP_SAMPLER_QUALITY          = TOGLSound.PROP_SAMPLER_QUALITY;
     // Opus Encoder
     const ENC_PROP_OPUS_MAX_PACKET_DURATION_MS  = TOpus.PROP_MAX_PACKET_DURATION_MS;
     const ENC_PROP_OPUS_MAX_PACKET_SIZE         = TOpus.PROP_MAX_PACKET_SIZE;
@@ -859,6 +959,7 @@ type
 
     class function IsCodecOgg(aCodec : TSoundLiteCodecType) : Boolean;
     class function CodecName(aCodec : TSoundLiteCodecType) : String;
+    class function CodecNameShrt(aCodec : TSoundLiteCodecType) : String;
     class function EncoderVersionString(aCodec : TSoundLiteCodecType) : String;
     class function GetFileExt(aCodec : TSoundLiteCodecType) : String;
     class function TryGetCodecByFileName(const FN : String) : TSoundLiteCodecType;
@@ -869,10 +970,25 @@ type
     class function GetCommentJSON(aSrc : ISoundComment) : TJSONObject;
     class function NewEncoderComment(aVorbisSrc : IVorbisComment;
                                      aConvertTo : TSoundLiteCodecType) : ISoundComment;
+
+    class function NewStreamEncoder(aCodec : TSoundLiteCodecType;
+                                     aStream : TStream;
+                                     aProps : ISoundEncoderProps) : ISoundStreamEncoder; overload;
+    class function NewStreamEncoder(aCodec : TSoundLiteCodecType;
+                                     aStream : TStream;
+                                     aDataLimits : TSoundDataLimits;
+                                     aProps : ISoundEncoderProps;
+                                     aComments : ISoundComment) : ISoundStreamEncoder; overload;
+
+    class function NewSpeexResampler(aOutBufferSize : ISoundFrameSize;
+                                     aInRate : Cardinal;
+                                     aQuality : Integer;
+                                     aProps : ISoundProps = nil) : ISoundResampler; overload;
+    class function NewSpeexResampler(aProps : ISoundProps) : ISoundResampler; overload;
   end;
 
-const c_SOUND_LITE_VERSION         = $006;
-      c_SOUND_LITE_VERSION_STRING  = '0.6';
+const c_SOUND_LITE_VERSION         = $0070;
+      c_SOUND_LITE_VERSION_STRING  = '0.7';
 
 implementation
 
@@ -918,6 +1034,333 @@ const
   {ecFILE_NOT_ACTIVATED}     'File is not activated.',
   {ecCAN_NOT_ACTIVATE}       'Can''t activate this track.',
   {ecWRONG_CAPTURE_SRC}      'Incorrect capture source - must be a descendant class of TSLFileDataRecorder.');
+
+{ TSoundSpeexResampler }
+
+function TSoundSpeexResampler.Init(aOutBufferSize : ISoundFrameSize;
+  aInRate : Cardinal; aQuality : Integer; aProps : ISoundProps) : Boolean;
+var
+  err : Integer;
+begin
+  FReady := inherited Init(aOutBufferSize, aInRate, aQuality, aProps);
+  FResample := nil;
+  if FReady then
+  begin
+    if (OutFrameSize.SampleSize in [ss16bit, ssFloat]) then
+    begin
+      FResample := speex_resampler_init(aOutBufferSize.Channels,
+                                     aInRate, aOutBufferSize.Frequency,
+                                     aQuality, @err);
+      FReady := err = 0;
+      if FReady and Assigned(aProps) then
+      begin
+        if aProps.GetDefault(TSoundLite.PROP_SPEEX_SAMPLER_SKIP_ZEROS, false) then
+          speex_resampler_skip_zeros(FResample);
+      end;
+    end else
+      FReady := false;
+  end;
+  Result := FReady;
+end;
+
+procedure TSoundSpeexResampler.Done;
+begin
+  inherited Done;
+  if assigned(FResample) then
+    speex_resampler_destroy(FResample);
+end;
+
+function TSoundSpeexResampler.DoWrite(aInBuffer, aOutBuffer : Pointer;
+  aSamples : Cardinal) : Cardinal;
+begin
+  // not supported for now. need to implement
+  Result := 0;
+end;
+
+function TSoundSpeexResampler.DoWriteInterleave(aInBuffer,
+  aOutBuffer : Pointer; aSamples : Cardinal) : Cardinal;
+begin
+  Result := OutFrameSize.AsSamples;
+  if OutFrameSize.SampleSize = ss16bit then
+    speex_resampler_process_interleaved_int(FResample, aInBuffer, @aSamples, aOutBuffer, @Result)
+  else
+  if OutFrameSize.SampleSize = ssFloat then
+    speex_resampler_process_interleaved_float(FResample, aInBuffer, @aSamples, aOutBuffer, @Result)
+  else
+    Result := 0;
+end;
+
+function TSoundSpeexResampler.Flush : ISoundFrameSize;
+var
+  zeros : pointer;
+  drainSamples, drain, tmp : integer;
+  outsamp : Cardinal;
+  buf : pointer;
+begin
+  drainSamples := 0;
+  // drain resampler
+  if OutFrameSize.SampleSize = ss16bit then
+    zeros := pByte(AllocMem(100*OutFrameSize.Channels * sizeof(Int16)))
+  else
+  if OutFrameSize.SampleSize = ssFloat then
+    zeros := pByte(AllocMem(100*OutFrameSize.Channels * sizeof(Single)))
+  else
+  begin
+    Result := TOGLSound.NewErrorFrame;
+    Exit;
+  end;
+
+  drain := speex_resampler_get_input_latency(FResample);
+  repeat
+     if drain < 100 then tmp := drain else tmp := 100;
+
+     outsamp := tmp;
+     if OutFrameSize.SampleSize = ss16bit then
+     begin
+       buf := @(Pbyte(OutBuffer)[drainSamples * OutFrameSize.Channels * sizeof(Int16)]);
+       speex_resampler_process_interleaved_int(FResample, zeros, @tmp,  buf, @outsamp)
+     end
+     else
+     begin
+       buf := @(Pbyte(OutBuffer)[drainSamples * OutFrameSize.Channels * sizeof(Single)]);
+       speex_resampler_process_interleaved_float(FResample, zeros, @tmp, buf, @outsamp)
+     end;
+     drainSamples += outsamp;
+     drain-=tmp;
+  until (drain <= 0);
+  freemem(zeros);
+
+  Result := OutFrameSize.EmptyDuplicate;
+  if drainSamples > 0 then
+    Result.IncSamples(drainSamples);
+  SetBufferSize(Result.AsBytes);
+end;
+
+procedure TSoundSpeexResampler.SetInputRate(aRate : Cardinal);
+begin
+  if Ready then
+  begin
+    if speex_resampler_set_rate(FResample, aRate, OutFrameSize.Frequency) <> 0 then
+      FReady := false;
+  end;
+end;
+
+procedure TSoundSpeexResampler.SetQuality(aValue : Integer);
+begin
+  if Ready then
+  begin
+    if speex_resampler_set_quality(FResample, aValue) <> 0 then
+      FReady := false;
+  end;
+end;
+
+function TSoundSpeexResampler.Ready : Boolean;
+begin
+  Result := FReady;
+end;
+
+function TSoundSpeexResampler.InputRate : Cardinal;
+begin
+  if Ready then
+   speex_resampler_get_rate(FResample, nil, @Result) else
+   Result := 0;
+end;
+
+function TSoundSpeexResampler.Quality : Integer;
+begin
+  if Ready then
+   speex_resampler_get_quality(FResample, @Result) else
+   Result := 0;
+end;
+
+{ TSLFramedPlayer }
+
+function TSLFramedPlayer.GetFramedDataSource : TSLFramedDataSource;
+begin
+  Result := TSLFramedDataSource(Stream.DataSource);
+end;
+
+constructor TSLFramedPlayer.Create;
+begin
+  inherited Create;
+  DataSourceClass := TSLFramedDataSource;
+end;
+
+procedure TSLFramedPlayer.Init(const devicename : String;
+  aCodec : TSoundLiteCodecType; aProps : ISoundProps);
+begin
+  inherited Init(devicename);
+  if Assigned(FramedSource) then
+  begin
+    FramedSource.Init(aCodec, aProps);
+  end;
+end;
+
+procedure TSLFramedPlayer.Init(const devicename : String;
+  aCodec : TSoundLiteCodecType; aProps : ISoundProps; buffers,
+  buffersize : Integer);
+begin
+  inherited Init(devicename, buffers, buffersize);
+  if Assigned(FramedSource) then
+  begin
+    FramedSource.Init(aCodec, aProps);
+  end;
+end;
+
+procedure TSLFramedPlayer.Init(aCodec : TSoundLiteCodecType;
+  aProps : ISoundProps; buffers, buffersize : Integer);
+begin
+  inherited Init('', buffers, buffersize);
+  if Assigned(FramedSource) then
+  begin
+    FramedSource.Init(aCodec, aProps);
+  end;
+end;
+
+procedure TSLFramedPlayer.Init(aCodec : TSoundLiteCodecType;
+  aProps : ISoundProps);
+begin
+  inherited Init;
+  if Assigned(FramedSource) then
+  begin
+    FramedSource.Init(aCodec, aProps);
+  end;
+end;
+
+{ TSLFramedDataSource }
+
+procedure TSLFramedDataSource.SetMaxFrameBufferingMs(AValue : Integer);
+begin
+  if FMaxFrameBufferingMs = AValue then Exit;
+  FMaxFrameBufferingMs := AValue;
+end;
+
+procedure TSLFramedDataSource.SetMaxFrameBufferingStarveMs(AValue : Integer);
+begin
+  if FMaxFrameBufferingStarveMs = AValue then Exit;
+  FMaxFrameBufferingStarveMs := AValue;
+end;
+
+constructor TSLFramedDataSource.Create(aCodec : TSoundLiteCodecType;
+                                       aProps : ISoundProps);
+begin
+  inherited Create;
+  Init(aCodec, aProps);
+end;
+
+procedure TSLFramedDataSource.Init(aCodec : TSoundLiteCodecType;
+  aProps : ISoundProps);
+begin
+  FInputFrames := TThreadSafeFastSeq.Create;
+  FFramedDecoder := TSLFramedDecoder.Create(aCodec, aProps);
+  FCurFrame := nil;
+  FAccumDuration := nil;
+  FMaxFrameBufferingMs := 6000;
+  FMaxFrameBufferingStarveMs := 3000;
+  FMaxFramesCount := 100;
+end;
+
+destructor TSLFramedDataSource.Destroy;
+begin
+  if Assigned(FCurFrame) then
+    FreeAndNil(FCurFrame);
+  FFramedDecoder.Free;
+  FInputFrames.Free;
+  inherited Destroy;
+end;
+
+function TSLFramedDataSource.LoadFromFile(const Fn : String) : Boolean;
+begin
+  // ignore
+  Result := false;
+end;
+
+function TSLFramedDataSource.LoadFromStream(Str : TStream) : Boolean;
+begin
+  // ignore
+  Result := false;
+end;
+
+procedure TSLFramedDataSource.Process;
+var
+  aFrame : TStream;
+  aDecoded : ISoundFrameSize;
+begin
+  aFrame := TStream(FInputFrames.PopValue);
+  if Assigned(aFrame) then
+  begin
+    FFramedDecoder.DataSource := aFrame;
+    aDecoded := FFramedDecoder.DecodeAllData(nil);
+    if aDecoded.IsValid then
+    begin
+      if Assigned(FAccumDuration) then
+        FAccumDuration.Inc(aDecoded) else
+        FAccumDuration := aDecoded;
+    end;
+  end;
+end;
+
+procedure TSLFramedDataSource.PushFrame(aFrame : TStream);
+begin
+  FInputFrames.Push_back(aFrame);
+
+  if FInputFrames.Count > MaxFramesCount then
+    FInputFrames.Erase(FInputFrames.ListBegin);
+end;
+
+function TSLFramedDataSource.Empty : Boolean;
+begin
+  Result := (FFramedDecoder.DecodedFrames.Count = 0) and (not Assigned(FCurFrame));
+end;
+
+function TSLFramedDataSource.Cached : Boolean;
+begin
+  if Assigned(FAccumDuration) and FAccumDuration.IsValid then
+    Result := FAccumDuration.AsDurationMs >= FMaxFrameBufferingMs else
+    Result := false;
+end;
+
+function TSLFramedDataSource.Starving : Boolean;
+begin
+  if Assigned(FAccumDuration) and FAccumDuration.IsValid then
+    Result := FAccumDuration.AsDurationMs < FMaxFrameBufferingStarveMs else
+    Result := true;
+end;
+
+function TSLFramedDataSource.ReadChunk(const Buffer : Pointer; Pos : Int64;
+  Sz : Integer; isloop : Boolean; var fmt : TOALFormat; var freq : Cardinal
+  ) : Integer;
+var
+  rsz, rdsz : Integer;
+  nEoS : Boolean;
+begin
+  rsz := 0;
+  nEoS := true;
+  while (rsz < Sz) and (nEoS) do
+  begin
+    if Assigned(FCurFrame) then
+    begin
+      fmt := TOpenAL.OALFormat(FCurFrame.FrameSize.Channels,
+                               FCurFrame.FrameSize.BitDepth);
+      freq := FCurFrame.FrameSize.Frequency;
+
+      rdsz := FCurFrame.Read(PByte(Buffer)[rsz], (Sz - rsz));
+      if rdsz <= 0 then
+      begin
+        FAccumDuration.Dec(FCurFrame.FrameSize);
+        FreeAndNil(FCurFrame);
+      end else
+        Inc(rsz, rdsz);
+    end else
+    begin
+      if Empty then
+        nEoS := false
+      else
+        FCurFrame := FFramedDecoder.DecodedFrames.PopValue;
+    end;
+  end;
+  Result := rsz;
+end;
 
 { TSLCapture }
 
@@ -1228,10 +1671,11 @@ end;
 
 function TSLConverterThread.StartConvert(const aSrcFile, aDstFile : String;
   aConvertTo : TSoundLiteCodecType; aEncProps : ISoundEncoderProps;
-  aComments : ISoundComment) : Boolean;
+  aResampler : ISoundResampler; aComments : ISoundComment) : Boolean;
 begin
   Result := FConverter.DoConvert(aSrcFile, aDstFile,
-                                           cmodPull, aConvertTo, aEncProps,
+                                           cmodPull,  aConvertTo, aEncProps,
+                                           aResampler,
                                            aComments);
   if Result then
     Start;
@@ -1312,8 +1756,10 @@ begin
   if FTotalSize.IsErrored then Exit(false);
 
   FConvdSize := FTotalSize.EmptyDuplicate;
+
   FBufferSize := FTotalSize.EmptyDuplicate;
   TSoundLite.GetChunkSize(FBufferSize, aEncProps);
+
   FTotalSize.IncSamples(FSrc.FileInfo.SamplesTotal);
 
   if FBufferSize.IsEmptyOrErrored then Exit(false);
@@ -1340,28 +1786,40 @@ end;
 
 function TSLConverter.InternalNextStep : Integer;
 var
-  len : ISoundFrameSize;
+  len, rlen : ISoundFrameSize;
+  wbuf : Pointer;
 begin
   if not FConverting then
     Result := -1
   else
   begin
     len := FSrc.ReadData(FBuffer, FBufferSize, nil);
-    if len.IsErrored then
+    if Assigned(FResampler) then
+    begin
+      FResampler.RequestBuffer(len.AsSamples);
+      rlen := FResampler.WriteInterleave(FBuffer, len);
+      wbuf := FResampler.OutBuffer;
+    end else
+    begin
+      wbuf := FBuffer;
+      rlen := len;
+    end;
+
+    if rlen.IsErrored then
       Result := -2
     else
     begin
-      if len.IsEmpty then
+      if rlen.IsEmpty then
       begin
         Result := 1;
         FDst.StopStreaming;
       end else
       begin
         Result := 0;
-        FConvdSize.Inc(len);
+        FConvdSize.Inc(rlen);
         if FTotalSize.Less(FConvdSize) then
           FTotalSize.Assign(FConvdSize);
-        if FDst.WriteData(FBuffer, len, nil).IsEmptyOrErrored then
+        if FDst.WriteData(wbuf, rlen, nil).IsEmptyOrErrored then
           Result := -2;
       end;
     end;
@@ -1406,6 +1864,7 @@ begin
   FSrc := nil;
   FDst := nil;
   FBuffer := nil;
+  FResampler := nil;
   FConverting := false;
   FMode := cmodOneStep;
 end;
@@ -1433,7 +1892,8 @@ end;
 
 function TSLConverter.SaveToFile(const aDstFile : String;
   aMode : TSLConvertMode; aConvertTo : TSoundLiteCodecType;
-  aEncProps : ISoundEncoderProps; aComments : ISoundComment) : Boolean;
+  aEncProps : ISoundEncoderProps; aResampler : ISoundResampler;
+  aComments : ISoundComment) : Boolean;
 var
   aVorbisComments : IVorbisComment;
 begin
@@ -1445,6 +1905,15 @@ begin
     if FSrc.FileInfo is TErroredSoundFileInfo then Exit(false);
     FSrc.Activate;
     if not FSrc.Active then Exit(false);
+
+    if Assigned(aResampler) then
+    begin
+      FResampler := aResampler;
+      if FResampler.InputRate <> FSrc.FileInfo.Frequency then
+        FResampler.SetInputRate(FSrc.FileInfo.Frequency);
+
+      if not FResampler.Ready then Exit(false);
+    end;
 
     if Assigned(FDst) then FreeAndNil(FDst);
     FDst := TSLOutputFile.Create;
@@ -1489,10 +1958,12 @@ end;
 
 function TSLConverter.DoConvert(const aSrcFile, aDstFile : String;
   aMode : TSLConvertMode; aConvertTo : TSoundLiteCodecType;
-  aEncProps : ISoundEncoderProps; aComments : ISoundComment) : Boolean;
+  aEncProps : ISoundEncoderProps; aResampler : ISoundResampler;
+  aComments : ISoundComment) : Boolean;
 begin
   Result := LoadFromFile(aSrcFile) and
-            SaveToFile(aDstFile, aMode, aConvertTo, aEncProps, aComments);
+            SaveToFile(aDstFile, aMode, aConvertTo,
+                       aEncProps, aResampler, aComments);
 end;
 
 function TSLConverter.PullStep : Integer;
@@ -1613,6 +2084,7 @@ begin
     FCurDecFrame.FrameSize := FCurFrameSize.Duplicate;
     FTotalDuration.Inc(FCurFrameSize);
     FCurFrameSize := FTotalDuration.EmptyDuplicate;
+    FCurDecFrame.Position := 0;
     FDecodedFrames.Push_back(FCurDecFrame);
     FCurDecFrame := nil;
   end;
@@ -3974,19 +4446,19 @@ begin
   end;
 end;
 
-class procedure TSoundLite.InitSoundLite(const aDLLPath : UTF8String;
-  aComponents : TSoundLiteComponents);
+class function TSoundLite.InitSoundLite(const aDLLPath : UTF8String;
+  aComponents : TSoundLiteComponents) : Boolean;
 begin
   SetLibPath(aDLLPath, aComponents);
-  InitSoundLite(aComponents);
+  Result := InitSoundLite(aComponents);
 end;
 
-class procedure TSoundLite.InitSoundLite(const aDLLPath : UTF8String);
+class function TSoundLite.InitSoundLite(const aDLLPath : UTF8String) : Boolean;
 begin
-  InitSoundLite(aDLLPath, cALL_SL_Components);
+  Result := InitSoundLite(aDLLPath, cALL_SL_Components);
 end;
 
-class procedure TSoundLite.InitSoundLite(aComponents : TSoundLiteComponents);
+class function TSoundLite.InitSoundLite(aComponents : TSoundLiteComponents) : Boolean;
 type
   SLibs = Array [0..High(byte)] of String;
   pSLibs = ^SLibs;
@@ -3998,6 +4470,7 @@ var i : TSoundLiteComponent;
     LibFilesCnt : Integer;
     usedefs, f : Boolean;
 begin
+  Result := true;
   for i := Low(TSoundLiteComponent) to High(TSoundLiteComponent) do
   begin
     if i in aComponents then
@@ -4060,13 +4533,15 @@ begin
       end;
       if f then
         Include(vLibsLoaded, i);
+
+      Result := Result and f;
     end;
   end;
 end;
 
-class procedure TSoundLite.InitSoundLite;
+class function TSoundLite.InitSoundLite : Boolean;
 begin
-  InitSoundLite(cALL_SL_Components);
+  Result := InitSoundLite(cALL_SL_Components);
 end;
 
 class function TSoundLite.Loaded(aComponent : TSoundLiteComponent) : Boolean;
@@ -4121,6 +4596,21 @@ begin
   if (aCodec and CODEC_OGG_UNKNOWN) = CODEC_OGG_UNKNOWN then
     Result := 'Unknown OGG' else
     Result := 'Unknown';
+end;
+
+class function TSoundLite.CodecNameShrt(aCodec : TSoundLiteCodecType) : String;
+begin
+  if aCodec = CODEC_FLAC then        Result := 'FLAC' else
+  if aCodec = CODEC_OPUS then        Result := 'Opus' else
+  if aCodec = CODEC_VORBIS then      Result := 'Vorbis' else
+  if aCodec = CODEC_WAV then         Result := 'WAV' else
+  if aCodec = CODEC_OGG_FLAC then    Result := 'FLACOGG' else
+  if aCodec = CODEC_OGG_OPUS then    Result := 'OpusOGG' else
+  if aCodec = CODEC_OGG_VORBIS then  Result := 'VorbisOGG' else
+  if aCodec = CODEC_OGG_WAV then     Result := 'WAVOGG' else
+  if (aCodec and CODEC_OGG_UNKNOWN) = CODEC_OGG_UNKNOWN then
+    Result := 'UNKOGG' else
+    Result := 'UNK';
 end;
 
 class function TSoundLite.EncoderVersionString(aCodec : TSoundLiteCodecType
@@ -4271,6 +4761,39 @@ begin
   else
     Result := nil;
   end;
+end;
+
+class function TSoundLite.NewStreamEncoder(aCodec : TSoundLiteCodecType;
+  aStream : TStream; aProps : ISoundEncoderProps) : ISoundStreamEncoder;
+begin
+  Result := NewStreamEncoder(aCodec, aStream, [sdpForceNotSeekable, sdpWriteOnly], aProps, nil);
+end;
+
+class function TSoundLite.NewStreamEncoder(aCodec : TSoundLiteCodecType;
+  aStream : TStream; aDataLimits : TSoundDataLimits;
+  aProps : ISoundEncoderProps;
+  aComments : ISoundComment) : ISoundStreamEncoder;
+begin
+  case aCodec of
+  CODEC_OPUS:
+    Result := TOpus.NewStreamEncoder(aStream, aProps);
+  CODEC_FLAC:
+    Result := TFLAC.NewStreamEncoder(aStream, aDataLimits, aProps, aComments);
+  else
+    Result := nil;
+  end;
+end;
+
+class function TSoundLite.NewSpeexResampler(aOutBufferSize : ISoundFrameSize;
+  aInRate : Cardinal; aQuality : Integer; aProps : ISoundProps ) : ISoundResampler;
+begin
+  Result := TSoundSpeexResampler.Create(aOutBufferSize,aInRate,aQuality, aProps);
+end;
+
+class function TSoundLite.NewSpeexResampler(aProps : ISoundProps
+  ) : ISoundResampler;
+begin
+  Result := TSoundSpeexResampler.Create(aProps);
 end;
 
 var i : TSoundLiteComponent;
