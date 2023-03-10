@@ -16,6 +16,7 @@
 !/examples/*/*.lpi
 !/examples/*/*.pas
 !/examples/*/*.lfm
+!/examples/*/*.glsl
 !/examples/media/testing.opus
 *.key
 *.crt
