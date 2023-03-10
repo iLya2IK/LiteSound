@@ -674,11 +674,6 @@ begin
   begin
     if FileExists(FileNameEdit1.FileName) then
     begin
-      PlayButton.Caption := 'Stop';
-      FileNameEdit1.Enabled := false;
-
-      InitSpectre;
-
       FPlayer.Playlist.AddFromFile(FileNameEdit1.FileName);
       FPlayer.Playlist.PlayRepeat := true;
       FPlayer.Playlist.PlayPosition := 0;
@@ -686,6 +681,11 @@ begin
       if Assigned(FPlayer.Playlist.CurrentTrack) then
       with FPlayer.Playlist.CurrentTrack.FileInfo do
       begin
+        PlayButton.Caption := 'Stop';
+        FileNameEdit1.Enabled := false;
+
+        InitSpectre;
+
         FResampler := TSoundLite.NewSpeexResampler(
                          TOGLSound.FrameFromDuration(SPECTRE_FREQ, Channels, SampleSize, Timer2.Interval),
                          Frequency, 6, nil);

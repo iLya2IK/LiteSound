@@ -766,7 +766,8 @@ begin
   FOggSync := nil;
   FOggStream := nil;
   FComments := nil;
-  FreeAndNil(FWavFormat);
+  if Assigned(FWavFormat) then
+    FreeAndNil(FWavFormat);
   if Assigned(FLinked) then
     FreeAndNil(FLinked);
 end;
@@ -1378,8 +1379,6 @@ function TRawDecoder.ReadHeader : Boolean;
 var
   aHeader : PChar;
 begin
-  Done;
-
   aHeader := GetMem(FWavFormat.HEADER_SIZE);
   try
     if DataStream.DoRead(aHeader, FWavFormat.HEADER_SIZE) = FWavFormat.HEADER_SIZE then
@@ -1416,7 +1415,8 @@ begin
   if Assigned(FDataChunks) then
     recursiveDeleteChunk(FDataChunks);
   FDataChunks := nil;
-  FWavFormat.Free;
+  if Assigned(FWavFormat) then
+    FreeAndNil(FWavFormat);
 end;
 
 function TRawDecoder.GetBitdepth : Cardinal;
@@ -1704,7 +1704,8 @@ end;
 
 procedure TRawEncoder.Done;
 begin
-  FWavFormat.Free;
+  if Assigned(FWavFormat) then
+    FreeAndNil(FWavFormat);
 end;
 
 constructor TRawEncoder.Create(aStream : TStream; aProps : ISoundEncoderProps);
