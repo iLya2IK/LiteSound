@@ -87,12 +87,12 @@ type
     procedure SelectTime(Sender : TObject; aValue : Double);
 
     procedure ShowComments(F : TSLTrackFile);
-    procedure OnStartPlay(Sender : TSLPlayer; aTrack : TSLTrackFile);
-    procedure OnPause(Sender : TSLPlayer; aTrack : TSLTrackFile);
-    procedure OnResume(Sender : TSLPlayer; aTrack : TSLTrackFile);
+    procedure OnStartPlay(Sender : TSLCustomPlayer);
+    procedure OnPause(Sender : TSLCustomPlayer);
+    procedure OnResume(Sender : TSLCustomPlayer);
     procedure OnTrackChanged(Sender : TSLPlayList;
                                     {%H-}aLstTrack, aNewTrack : TSLTrackFile);
-    procedure OnStopPlay(Sender : TSLPlayer);
+    procedure OnStopPlay(Sender : TSLCustomPlayer);
 
     procedure HandleStartPlay(var {%H-}Msg: TLMessage); message WM_START_PLAY;
     procedure HandleStopPlay(var {%H-}Msg: TLMessage); message WM_STOP_PLAY;
@@ -267,19 +267,19 @@ begin
   end;
 end;
 
-procedure TForm1.OnStartPlay(Sender : TSLPlayer; aTrack : TSLTrackFile);
+procedure TForm1.OnStartPlay(Sender : TSLCustomPlayer);
 begin
-  PostMessage(Form1.Handle, WM_START_PLAY, PtrInt(aTrack), 0);
+  PostMessage(Form1.Handle, WM_START_PLAY, PtrInt(TSLPlayer(Sender).Playlist.CurrentTrack), 0);
 end;
 
-procedure TForm1.OnPause(Sender : TSLPlayer; aTrack : TSLTrackFile);
+procedure TForm1.OnPause(Sender : TSLCustomPlayer);
 begin
-  PostMessage(Form1.Handle, WM_PAUSE, PtrInt(aTrack), 0);
+  PostMessage(Form1.Handle, WM_PAUSE, PtrInt(TSLPlayer(Sender).Playlist.CurrentTrack), 0);
 end;
 
-procedure TForm1.OnResume(Sender : TSLPlayer; aTrack : TSLTrackFile);
+procedure TForm1.OnResume(Sender : TSLCustomPlayer);
 begin
-  PostMessage(Form1.Handle, WM_RESUME, PtrInt(aTrack), 0);
+  PostMessage(Form1.Handle, WM_RESUME, PtrInt(TSLPlayer(Sender).Playlist.CurrentTrack), 0);
 end;
 
 procedure TForm1.OnTrackChanged(Sender : TSLPlayList; aLstTrack,
@@ -288,7 +288,7 @@ begin
   PostMessage(Form1.Handle, WM_TRACK_CHANGED, PtrInt(aNewTrack), 0);
 end;
 
-procedure TForm1.OnStopPlay(Sender : TSLPlayer);
+procedure TForm1.OnStopPlay(Sender : TSLCustomPlayer);
 begin
   PostMessage(Form1.Handle, WM_STOP_PLAY, 0, 0);
 end;

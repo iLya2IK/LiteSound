@@ -1,6 +1,6 @@
 # liteSound_iLya2IK
 
-A set of classes for playing, recording and converting audio files and audio streams. Uses the principles of dynamic linking of libraries. Supports audio formats WAV, FLAC, Vorbis and Opus (including for the organization of streaming audio frames).
+A set of classes for playing, recording and converting audio files and audio streams. In addition, the package contains classes and interfaces for working with resamplers, spectrum extractors and audio signal filtering. Uses the principles of dynamic linking of libraries. Supports audio formats WAV, FLAC, Vorbis and Opus (including for the organization of streaming audio frames).
 
 ### Examples
 
@@ -9,6 +9,8 @@ A set of classes for playing, recording and converting audio files and audio str
 * Converter example - This example emulates the operation of a simple audio file converter.
 * FrameStreaming example - In this example, an audio-ogg file is opened and decoded into a data stream. The resulting stream is then re-encoded into a set of encoded frames. A set of encoded frames is saved to the files on disk in the user's format. Frame-files are then opened, decoded into a data stream and saved in a new file in selected format.
 * Resampler - This example demonstrates the operation of a simple speex resampler.
+* fft - This example demonstrates the operation of a simple fast discrete Fourier transform and inverse. 
+* Spectre - This example shows a visualization of a fast discrete Fourier transform for an audio stream using OpenGL.
  
 ### Requirements
 
@@ -29,7 +31,7 @@ A set of classes for playing, recording and converting audio files and audio str
 * [libFLAC](https://xiph.org/flac/download.html)
 * [Vorbis/VorbisEnc/VorbisFile](https://xiph.org/vorbis/)
 * [Opus/OpusEnc/OpusFile](https://opus-codec.org/downloads/)
-
+* [OpenGL v3.3](optional - for Spectre example)
 
 ### Installation
 

@@ -34,6 +34,9 @@ type
   TSLPlayerState = (slsInvalid, slsInitial, slsPlaying, slsPaused, slsStopped);
   TSLCaptureState = (slcsInvalid, slcsWaiting, slcsCapturing);
 
+  TSLCustomPlayer = class;
+  TSLPlayList = class;
+
   { TSLAudioFrame }
 
   TSLAudioFrame = class(TExtMemoryStream)
@@ -196,28 +199,6 @@ type
     property MaxFrameBufferingMs : Integer read FMaxFrameBufferingMs write SetMaxFrameBufferingMs;
     property MaxFrameBufferingStarveMs : Integer read FMaxFrameBufferingStarveMs write SetMaxFrameBufferingStarveMs;
   end;
-
-  { TSLFramedPlayer }
-
-  TSLFramedPlayer = class(TOALPlayer)
-  private
-    function GetFramedDataSource : TSLFramedDataSource;
-  public
-    constructor Create;
-    procedure Init(const devicename : String;
-                         aCodec : TSoundLiteCodecType; aProps : ISoundProps); overload;
-    procedure Init(const devicename : String;
-                         aCodec : TSoundLiteCodecType; aProps : ISoundProps;
-                           buffers, buffersize  : Integer); overload;
-    procedure Init(aCodec : TSoundLiteCodecType; aProps : ISoundProps;
-                         buffers, buffersize  : Integer); overload;
-    procedure Init(aCodec : TSoundLiteCodecType; aProps : ISoundProps); overload;
-
-    property  FramedSource : TSLFramedDataSource read GetFramedDataSource;
-  end;
-
-  TSLPlayer = class;
-  TSLPlayList = class;
 
   { TSoundFileInfo }
 
@@ -440,14 +421,36 @@ type
     procedure StopStreaming;
   end;
 
+  TSLPlaylistAction = (slplaClear, slplaAddTrack, slplaAddTracks, slplaDeleteTrack);
+
+  TSLOnStartPlay = procedure (Sender : TSLCustomPlayer) of object;
+  TSLOnPauseResume = procedure (Sender : TSLCustomPlayer) of object;
+  TSLOnStopPlay = procedure (Sender : TSLCustomPlayer) of object;
+
+  TSLOnTrackChanged = procedure (Sender : TSLPlayList; aLstTrack, aNewTrack : TSLTrackFile) of object;
+  TSLOnTrackAdd = procedure (aTrack : TSLTrackFile) of object;
+  TSLOnTrackDelete = procedure (aTrack : TSLTrackFile) of object;
+  TSLOnTracksAdd = procedure (aCount : Integer) of object;
+  TSLOnPlaylistClear = procedure () of object;
+
   { TSLPlaylistConsumer }
 
-  TSLPlaylistConsumer = class(TThreadSafeObject)
+  TSLPlaylistConsumer = class
+  private
+    FOnClearPlaylist : TSLOnPlaylistClear;
+    FOnDeleteTrack : TSLOnTrackDelete;
+    FOnAddTrack  : TSLOnTrackAdd;
+    FOnAddTracks : TSLOnTracksAdd;
   protected
-    procedure DoClearPlayList; virtual; abstract;
-    procedure DoDeleteTrack(aTrack : TSLTrackFile); virtual; abstract;
-    procedure DoAddTrack(aTrack : TSLTrackFile); virtual; abstract;
-    procedure DoAddTracks(aCount : Integer); virtual; abstract;
+    procedure DoClearPlayList;
+    procedure DoDeleteTrack(aTrack : TSLTrackFile);
+    procedure DoAddTrack(aTrack : TSLTrackFile);
+    procedure DoAddTracks(aCount : Integer);
+  public
+    property OnClearPlaylist : TSLOnPlaylistClear read  FOnClearPlaylist write FOnClearPlaylist;
+    property OnDeleteTrack : TSLOnTrackDelete read FOnDeleteTrack write FOnDeleteTrack;
+    property OnAddTrack  : TSLOnTrackAdd read FOnAddTrack write FOnAddTrack;
+    property OnAddTracks : TSLOnTracksAdd read FOnAddTracks write FOnAddTracks;
   end;
 
   { TSLPlaylistConsumers }
@@ -456,13 +459,6 @@ type
   public
     destructor Destroy; override;
   end;
-
-  TSLPlaylistAction = (slplaClear, slplaAddTrack, slplaAddTracks, slplaDeleteTrack);
-
-  TSLOnStartPlay = procedure (Sender : TSLPlayer; aTrack : TSLTrackFile) of object;
-  TSLOnPauseResume = procedure (Sender : TSLPlayer; aTrack : TSLTrackFile) of object;
-  TSLOnTrackChanged = procedure (Sender : TSLPlayList; aLstTrack, aNewTrack : TSLTrackFile) of object;
-  TSLOnStopPlay = procedure (Sender : TSLPlayer) of object;
 
   { TSLPlayList }
 
@@ -599,64 +595,119 @@ type
 
   TSLPlayerThread = class;
 
-  { TSLPlayer }
+  TSLOnNextData = procedure (aBuffer : Pointer;
+                                aFrame : ISoundFrameSize) of object;
 
-  TSLPlayer = class(TSLPlaylistConsumer)
+  { TSLCustomPlayer }
+
+  TSLCustomPlayer = class(TThreadSafeObject)
   private
+    FOnNextData : TSLOnNextData;
     FOnPause, FOnResume : TSLOnPauseResume;
     FOnStartPlay : TSLOnStartPlay;
     FOnStopPlay : TSLOnStopPlay;
-    FPlayList  : TSLPlayList;
-    FOALPlayer : TOALPlayer;  // threadsafe wrapped
+
     FLastStatus : TSLPlayerState;
-    FTrackFinished : Boolean;
+    FOALPlayer : TOALPlayer;  // threadsafe wrapped
+
     function GetGain : Single;
     procedure SetGain(AValue : Single);
+    procedure SetOnNextData(AValue : TSLOnNextData);
     procedure SetOnPause(AValue : TSLOnPauseResume);
     procedure SetOnResume(AValue : TSLOnPauseResume);
     procedure SetOnStartPlay(AValue : TSLOnStartPlay);
     procedure SetOnStopPlay(AValue : TSLOnStopPlay);
-
+    procedure InternalNextBuffer(aBuffer : Pointer;
+                                  aSize : Int64;
+                                  aFormat : TOALFormat;
+                                  aFrequency : Cardinal);
   protected
-    procedure DoClearPlayList; override;
-    procedure DoDeleteTrack(aTrack : TSLTrackFile); override;
-    procedure DoAddTrack(aTrack : TSLTrackFile); override;
-    procedure DoAddTracks(aCount : Integer); override;
+    procedure DoStatusChanged(aNew, aOld : TSLPlayerState); virtual;
+    procedure DoAfterPlayerInit; virtual;
   public
     constructor Create;
     destructor Destroy; override;
 
-    class function StartThread : TSLPlayerThread;
+    procedure InitPlayer; overload;
+    procedure InitPlayer(const devicename : String); overload;
+    procedure InitPlayer(const devicename : String;
+                           buffers, buffersize  : Integer); overload;
 
-    procedure FullLock;
-    procedure FullUnLock;
+    procedure FullLock; virtual;
+    procedure FullUnLock; virtual;
 
-    procedure Play;
-    procedure Pause;
-    procedure Resume;
-    procedure Stop;
+    procedure Play; virtual;
+    procedure Pause; virtual;
+    procedure Resume; virtual;
+    procedure Stop; virtual;
 
-    procedure SeekTime(aTime : Double);
-    procedure SeekSample(aSample : Integer);
-    function PlayedTime : Double;
-    function PlayedSamples : Integer;
-    function DecodedTime : Double;
-    function DecodedSamples : Integer;
-    function Status : TSLPlayerState;
+    procedure SeekTime(aTime : Double); virtual;
+    procedure SeekSample(aSample : Integer); virtual;
+    function PlayedTime : Double; virtual;
+    function PlayedSamples : Integer; virtual;
+    function DecodedTime : Double; virtual;
+    function DecodedSamples : Integer; virtual;
+    function Status : TSLPlayerState; virtual;
     function Playing : Boolean;
     function Paused : Boolean;
     function Stopped : Boolean;
 
     property Gain : Single read GetGain write SetGain;
 
-    procedure Proceed;
-
-    property Playlist : TSLPlayList read FPlayList;
+    procedure Proceed; virtual;
 
     property OnStartPlay : TSLOnStartPlay read FOnStartPlay write SetOnStartPlay;
     property OnStopPlay : TSLOnStopPlay read FOnStopPlay write SetOnStopPlay;
+    property OnNextData : TSLOnNextData read FOnNextData write SetOnNextData;
     property OnPause : TSLOnPauseResume read FOnPause write SetOnPause;
     property OnResume : TSLOnPauseResume read FOnResume write SetOnResume;
+  end;
+
+  { TSLFramedPlayer }
+
+  TSLFramedPlayer = class(TSLCustomPlayer)
+  private
+    function GetFramedDataSource : TSLFramedDataSource;
+  public
+    constructor Create;
+
+    procedure InitPlayer(const devicename : String;
+                         aCodec : TSoundLiteCodecType; aProps : ISoundProps); overload;
+    procedure InitPlayer(const devicename : String;
+                         aCodec : TSoundLiteCodecType; aProps : ISoundProps;
+                           buffers, buffersize  : Integer); overload;
+    procedure InitPlayer(aCodec : TSoundLiteCodecType; aProps : ISoundProps;
+                         buffers, buffersize  : Integer); overload;
+    procedure InitPlayer(aCodec : TSoundLiteCodecType; aProps : ISoundProps); overload;
+
+    property  FramedSource : TSLFramedDataSource read GetFramedDataSource;
+  end;
+
+  { TSLPlayer }
+
+  TSLPlayer = class(TSLCustomPlayer)
+  private
+    FPlayList      : TSLPlayList;
+    FTrackFinished : Boolean;
+    FConsumer      : TSLPlaylistConsumer;
+  protected
+    procedure DoStatusChanged(aNew, aOld : TSLPlayerState); override;
+    procedure DoClearPlayList;
+    procedure DoDeleteTrack(aTrack : TSLTrackFile);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    class function StartThread : TSLPlayerThread;
+
+    procedure FullLock; override;
+    procedure FullUnLock; override;
+
+    procedure Play; override;
+
+    procedure Proceed; override;
+
+    property Playlist : TSLPlayList read FPlayList;
   end;
 
   { TSLPlayerThread }
@@ -666,6 +717,9 @@ type
     FPlayer : TSLPlayer;
   public
     constructor Create;
+    constructor Create(const devicename : String); overload;
+    constructor Create(const devicename : String;
+                           buffers, buffersize  : Integer); overload;
     destructor Destroy; override;
     procedure Execute; override;
 
@@ -696,6 +750,55 @@ type
     function Ready : Boolean; override;
     function InputRate : Cardinal; override;
     function Quality : Integer; override;
+  end;
+
+  { TSoundFFT }
+
+  TSoundFFT = class(TInterfacedObject)
+  private
+    FChannels, FCount : Cardinal;
+    FWave, FX : ^PSingle;
+    FInt : ^PInteger;
+    FReady : Boolean;
+  protected
+    function  Init(aCount, aChannels : Cardinal) : Boolean; virtual;
+    procedure Done; virtual;
+  public
+    constructor Create(aCount, aChannels : Cardinal);
+    destructor Destroy; override;
+
+    function ReInit(aCount, aChannels : Cardinal) : Boolean;
+
+    function Ready : Boolean;
+    function Channels : Cardinal;
+    function SamplesCount : Cardinal;
+    function SpectreSize : Cardinal;
+  end;
+
+  { TSoundForwardFFT }
+
+  TSoundForwardFFT = class(TSoundFFT, ISoundForwardTransformation)
+  private
+    FZeroHarmonic : PSoundComplexData;
+  protected
+    function  Init(aCount, aChannels : Cardinal) : Boolean; override;
+    procedure Done; override;
+  public
+    procedure Process(aBuffer : PPointer; aSampleSize : TSoundSampleSize);
+    procedure ProcessInterleave(aBuffer : Pointer; aSampleSize : TSoundSampleSize);
+
+    function OutputHarmonic(ch, n : integer) : TSoundComplexData;
+    function OutputRaw : PPointer;
+  end;
+
+  { TSoundBackwardFFT }
+
+  TSoundBackwardFFT = class(TSoundFFT, ISoundBackwardTransformation)
+  public
+    procedure Process(aBuffer : PPointer);
+    procedure ProcessInterleave(aBuffer : PPointer);
+
+    function Output : PPointer;
   end;
 
   TSLConvertMode = (cmodOneStep, cmodPull);
@@ -985,6 +1088,9 @@ type
                                      aQuality : Integer;
                                      aProps : ISoundProps = nil) : ISoundResampler; overload;
     class function NewSpeexResampler(aProps : ISoundProps) : ISoundResampler; overload;
+
+    class function NewForwardFFT(aSampleCount, aChannels : Cardinal) : ISoundForwardTransformation;
+    class function NewBackwardFFT(aSampleCount, aChannels : Cardinal) : ISoundBackwardTransformation;
   end;
 
 const c_SOUND_LITE_VERSION         = $0070;
@@ -1034,6 +1140,509 @@ const
   {ecFILE_NOT_ACTIVATED}     'File is not activated.',
   {ecCAN_NOT_ACTIVATE}       'Can''t activate this track.',
   {ecWRONG_CAPTURE_SRC}      'Incorrect capture source - must be a descendant class of TSLFileDataRecorder.');
+
+{ TSLCustomPlayer }
+
+function TSLCustomPlayer.GetGain : Single;
+begin
+  Lock;
+  try
+    Result := FOALPlayer.Gain;
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCustomPlayer.SetGain(AValue : Single);
+begin
+  Lock;
+  try
+    FOALPlayer.Gain := AValue;
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCustomPlayer.SetOnNextData(AValue : TSLOnNextData);
+begin
+  if FOnNextData = AValue then Exit;
+  FOnNextData := AValue;
+end;
+
+procedure TSLCustomPlayer.SetOnPause(AValue : TSLOnPauseResume);
+begin
+  if FOnPause = AValue then Exit;
+  FOnPause := AValue;
+end;
+
+procedure TSLCustomPlayer.SetOnResume(AValue : TSLOnPauseResume);
+begin
+  if FOnResume = AValue then Exit;
+  FOnResume := AValue;
+end;
+
+procedure TSLCustomPlayer.SetOnStartPlay(AValue : TSLOnStartPlay);
+begin
+  if FOnStartPlay = AValue then Exit;
+  FOnStartPlay := AValue;
+end;
+
+procedure TSLCustomPlayer.SetOnStopPlay(AValue : TSLOnStopPlay);
+begin
+  if FOnStopPlay = AValue then Exit;
+  FOnStopPlay := AValue;
+end;
+
+procedure TSLCustomPlayer.InternalNextBuffer(aBuffer : Pointer;
+  aSize : Int64; aFormat : TOALFormat; aFrequency : Cardinal);
+begin
+  if Assigned(FOnNextData) then
+  begin
+    FOnNextData(aBuffer, TOGLSound.FrameFromBytes(aFrequency,
+                            TOpenAL.OALFormatToChannels(aFormat),
+                            TOGLSound.BitdepthToSampleSize(
+                                   TOpenAL.OALFormatToBitsPerSample(aFormat)),
+                            aSize));
+  end;
+end;
+
+procedure TSLCustomPlayer.DoStatusChanged(aNew, aOld : TSLPlayerState);
+begin
+  case aNew of
+   slsPlaying : begin
+     if aOld = slsPaused then
+     begin
+       if Assigned(FOnResume) then
+         FOnResume(Self);
+     end else
+     begin
+       if Assigned(FOnStartPlay) then
+         FOnStartPlay(Self);
+     end;
+   end;
+   slsPaused : begin
+     if Assigned(FOnPause) then
+       FOnPause(Self);
+   end;
+   slsStopped : begin
+     if Assigned(FOnStopPlay) then
+       FOnStopPlay(Self);
+   end;
+  end;
+end;
+
+procedure TSLCustomPlayer.DoAfterPlayerInit;
+begin
+  if Assigned(FOALPlayer.Stream) then
+    FOALPlayer.Stream.OnNextBuffer := @InternalNextBuffer;
+end;
+
+constructor TSLCustomPlayer.Create;
+begin
+  inherited Create;
+  FLastStatus := slsInvalid;
+  FOALPlayer := TOALPlayer.Create;
+end;
+
+destructor TSLCustomPlayer.Destroy;
+begin
+  FOALPlayer.Free;
+  inherited Destroy;
+end;
+
+procedure TSLCustomPlayer.InitPlayer;
+begin
+  FOALPlayer.Init;
+  DoAfterPlayerInit;
+end;
+
+procedure TSLCustomPlayer.InitPlayer(const devicename : String);
+begin
+  FOALPlayer.Init(devicename);
+  DoAfterPlayerInit;
+end;
+
+procedure TSLCustomPlayer.InitPlayer(const devicename : String; buffers,
+  buffersize : Integer);
+begin
+  FOALPlayer.Init(devicename, buffers, buffersize);
+  DoAfterPlayerInit;
+end;
+
+procedure TSLCustomPlayer.FullLock;
+begin
+  Lock;
+end;
+
+procedure TSLCustomPlayer.FullUnLock;
+begin
+  UnLock;
+end;
+
+procedure TSLCustomPlayer.Play;
+begin
+  FullLock;
+  try
+    if Status = slsPaused then
+    begin
+      Resume;
+    end else
+    begin
+      FOALPlayer.Stop;
+      FOALPlayer.Play;
+      FLastStatus := slsPlaying;
+      if Assigned(FOnStartPlay) then
+        FOnStartPlay(Self);
+    end;
+  finally
+    FullUnLock;
+  end;
+end;
+
+procedure TSLCustomPlayer.Pause;
+begin
+  Lock;
+  try
+    FOALPlayer.Pause;
+    FLastStatus := slsPaused;
+    if Assigned(FOnPause) then
+      FOnPause(Self);
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCustomPlayer.Resume;
+begin
+  Lock;
+  try
+    FOALPlayer.Resume;
+    FLastStatus := slsPlaying;
+    if Assigned(FOnResume) then
+      FOnResume(Self);
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCustomPlayer.Stop;
+begin
+  Lock;
+  try
+    FOALPlayer.Stop;
+    FLastStatus := slsStopped;
+    if Assigned(FOnStopPlay) then
+      FOnStopPlay(Self);
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCustomPlayer.SeekTime(aTime : Double);
+begin
+  Lock;
+  try
+    FOALPlayer.SeekTime(aTime);
+  finally
+    UnLock;
+  end;
+end;
+
+procedure TSLCustomPlayer.SeekSample(aSample : Integer);
+begin
+  Lock;
+  try
+    FOALPlayer.SeekSample(aSample);
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCustomPlayer.PlayedTime : Double;
+begin
+  Lock;
+  try
+    Result := FOALPlayer.PlayedTime;
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCustomPlayer.PlayedSamples : Integer;
+begin
+  Lock;
+  try
+    Result := FOALPlayer.PlayedSamples;
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCustomPlayer.DecodedTime : Double;
+begin
+  Lock;
+  try
+    Result := FOALPlayer.DecodedTime;
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCustomPlayer.DecodedSamples : Integer;
+begin
+  Lock;
+  try
+    Result := FOALPlayer.DecodedSamples;
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCustomPlayer.Status : TSLPlayerState;
+var
+  aCurStatus : TSLPlayerState;
+begin
+  Lock;
+  try
+    aCurStatus := TSLPlayerState(FOALPlayer.Status);
+    Result := aCurStatus;
+    if aCurStatus <> FLastStatus then
+    begin
+      DoStatusChanged(aCurStatus, FLastStatus);
+      FLastStatus := aCurStatus;
+    end;
+  finally
+    UnLock;
+  end;
+end;
+
+function TSLCustomPlayer.Playing : Boolean;
+begin
+  Result := Status = slsPlaying;
+end;
+
+function TSLCustomPlayer.Paused : Boolean;
+begin
+  Result := Status = slsPaused;
+end;
+
+function TSLCustomPlayer.Stopped : Boolean;
+begin
+  Result := Status = slsStopped;
+end;
+
+procedure TSLCustomPlayer.Proceed;
+var
+  FStatus : TSLPlayerState;
+begin
+  Lock;
+  try
+    FStatus := Status;
+    if FStatus = slsPlaying then
+      FOALPlayer.Stream.Proceed;
+  finally
+    UnLock;
+  end;
+end;
+
+{ TSLPlaylistConsumer }
+
+procedure TSLPlaylistConsumer.DoClearPlayList;
+begin
+  if Assigned(FOnClearPlaylist) then
+    FOnClearPlaylist();
+end;
+
+procedure TSLPlaylistConsumer.DoDeleteTrack(aTrack : TSLTrackFile);
+begin
+  if Assigned(FOnDeleteTrack) then
+    FOnDeleteTrack(aTrack);
+end;
+
+procedure TSLPlaylistConsumer.DoAddTrack(aTrack : TSLTrackFile);
+begin
+  if Assigned(FOnAddTrack) then
+    FOnAddTrack(aTrack);
+end;
+
+procedure TSLPlaylistConsumer.DoAddTracks(aCount : Integer);
+begin
+  if Assigned(FOnAddTracks) then
+    FOnAddTracks(aCount);
+end;
+
+{ TSoundBackwardFFT }
+
+procedure TSoundBackwardFFT.Process(aBuffer : PPointer);
+var
+  i : integer;
+begin
+  for i := 0 to FChannels-1 do
+  begin
+    move(aBuffer[0]^, FX[i]^, FCount * SizeOf(Single));
+    __ogg_fdrfftb(FCount, FX[i], FWave[i], FInt[i]);
+  end;
+end;
+
+procedure TSoundBackwardFFT.ProcessInterleave(aBuffer : PPointer);
+begin
+  // not implemented yet
+end;
+
+function TSoundBackwardFFT.Output : PPointer;
+begin
+  Result := PPointer(FX);
+end;
+
+{ TSoundFFT }
+
+function TSoundFFT.Init(aCount, aChannels : Cardinal) : Boolean;
+var
+  i : integer;
+begin
+  FChannels := aChannels;
+  FCount := aCount;
+
+  if aChannels = 0 then Exit(false);
+
+  FWave := GetMem(aChannels * Sizeof(pointer));
+  FX := GetMem(aChannels * Sizeof(pointer));
+  FInt := GetMem(aChannels * Sizeof(pointer));
+
+  Result := Assigned(FWave) and Assigned(FX) and Assigned(FInt);
+
+  if Result then
+  for i := 0 to aChannels-1 do
+  begin
+    FWave[i] := AllocMem((2 * FCount + 15) * Sizeof(Single));
+    FX[i] := AllocMem((FCount) * Sizeof(Single));
+    FInt[i] := AllocMem(15 * Sizeof(Integer));
+
+    Result := Assigned(FWave[i]) and Assigned(FX[i]) and Assigned(FInt[i]);
+    if not Result then Exit;
+
+    __ogg_fdrffti(FCount, FWave[i], FInt[i]);
+  end;
+end;
+
+procedure TSoundFFT.Done;
+var
+  i : integer;
+begin
+  for i := 0 to FChannels-1 do
+  begin
+    if Assigned(FX) and Assigned(FX[i]) then
+      FreeMemAndNil(FX[i]);
+    if Assigned(FInt) and Assigned(FInt[i]) then
+      FreeMemAndNil(FInt[i]);
+    if Assigned(FWave) and Assigned(FWave[i]) then
+      FreeMemAndNil(FWave[i]);
+  end;
+
+  if Assigned(FX) then
+    FreeMemAndNil(FX);
+  if Assigned(FInt) then
+    FreeMemAndNil(FInt);
+  if Assigned(FWave) then
+    FreeMemAndNil(FWave);
+  FReady := false;
+end;
+
+constructor TSoundFFT.Create(aCount, aChannels : Cardinal);
+begin
+  inherited Create;
+  FReady := Init(aCount, aChannels);
+end;
+
+destructor TSoundFFT.Destroy;
+begin
+  Done;
+  inherited Destroy;
+end;
+
+function TSoundFFT.ReInit(aCount, aChannels : Cardinal) : Boolean;
+begin
+  Done;
+  Result := Init(aCount, aChannels);
+end;
+
+function TSoundFFT.Ready : Boolean;
+begin
+  Result := FReady;
+end;
+
+function TSoundFFT.Channels : Cardinal;
+begin
+  Result := FChannels;
+end;
+
+function TSoundFFT.SamplesCount : Cardinal;
+begin
+  Result := FCount;
+end;
+
+function TSoundFFT.SpectreSize : Cardinal;
+begin
+  Result := FCount div 2;
+end;
+
+{ TSoundForwardFFT }
+
+function TSoundForwardFFT.Init(aCount, aChannels : Cardinal) : Boolean;
+begin
+  Result := inherited Init(aCount, aChannels);
+  FZeroHarmonic := GetMem(Sizeof(TSoundComplexData) * FChannels);
+  FillByte(FZeroHarmonic^, Sizeof(TSoundComplexData) * FChannels, 0);
+end;
+
+procedure TSoundForwardFFT.Done;
+begin
+  FreeMemAndNil(FZeroHarmonic);
+  inherited Done;
+end;
+
+procedure TSoundForwardFFT.Process(aBuffer : PPointer; aSampleSize : TSoundSampleSize);
+var
+  i : integer;
+begin
+  for i := 0 to FChannels-1 do
+  begin
+    InterleaveSamples(aBuffer[i], FX[i], aSampleSize, ssFloat, true, 1, FCount);
+    __ogg_fdrfftf(FCount, FX[i], FWave[i], FInt[i]);
+  end;
+end;
+
+procedure TSoundForwardFFT.ProcessInterleave(aBuffer : Pointer;
+  aSampleSize : TSoundSampleSize);
+var
+  i : integer;
+begin
+  UninterleaveSamples(aBuffer, PPointer( FX ), aSampleSize, ssFloat, true, FChannels, FCount);
+  for i := 0 to FChannels-1 do
+  begin
+    __ogg_fdrfftf(FCount, FX[i], FWave[i], FInt[i]);
+    FZeroHarmonic[i].r := FX[i][0];
+    FZeroHarmonic[i].i := 0;
+  end;
+end;
+
+function TSoundForwardFFT.OutputHarmonic(ch, n : integer) : TSoundComplexData;
+begin
+  // the first value of ft is always (offset + i*0.0)
+  // in this case FX[ch][0] = 0.0
+  // and the complex data for the 1st harmonics begins at
+  // FX[ch][1] = Output(ch).r
+  if n = 0 then
+  begin
+    Result := FZeroHarmonic[ch];
+  end else
+    Result := PSoundComplexData(@(FX[ch][1 + (n-1) shl 1]))^;
+end;
+
+function TSoundForwardFFT.OutputRaw : PPointer;
+begin
+  Result := PPointer(FX);
+end;
 
 { TSoundSpeexResampler }
 
@@ -1177,50 +1786,50 @@ end;
 
 function TSLFramedPlayer.GetFramedDataSource : TSLFramedDataSource;
 begin
-  Result := TSLFramedDataSource(Stream.DataSource);
+  Result := TSLFramedDataSource(FOALPlayer.Stream.DataSource);
 end;
 
 constructor TSLFramedPlayer.Create;
 begin
   inherited Create;
-  DataSourceClass := TSLFramedDataSource;
+  FOALPlayer.DataSourceClass := TSLFramedDataSource;
 end;
 
-procedure TSLFramedPlayer.Init(const devicename : String;
+procedure TSLFramedPlayer.InitPlayer(const devicename : String;
   aCodec : TSoundLiteCodecType; aProps : ISoundProps);
 begin
-  inherited Init(devicename);
+  inherited InitPlayer(devicename);
   if Assigned(FramedSource) then
   begin
     FramedSource.Init(aCodec, aProps);
   end;
 end;
 
-procedure TSLFramedPlayer.Init(const devicename : String;
+procedure TSLFramedPlayer.InitPlayer(const devicename : String;
   aCodec : TSoundLiteCodecType; aProps : ISoundProps; buffers,
   buffersize : Integer);
 begin
-  inherited Init(devicename, buffers, buffersize);
+  inherited InitPlayer(devicename, buffers, buffersize);
   if Assigned(FramedSource) then
   begin
     FramedSource.Init(aCodec, aProps);
   end;
 end;
 
-procedure TSLFramedPlayer.Init(aCodec : TSoundLiteCodecType;
+procedure TSLFramedPlayer.InitPlayer(aCodec : TSoundLiteCodecType;
   aProps : ISoundProps; buffers, buffersize : Integer);
 begin
-  inherited Init('', buffers, buffersize);
+  inherited InitPlayer('', buffers, buffersize);
   if Assigned(FramedSource) then
   begin
     FramedSource.Init(aCodec, aProps);
   end;
 end;
 
-procedure TSLFramedPlayer.Init(aCodec : TSoundLiteCodecType;
+procedure TSLFramedPlayer.InitPlayer(aCodec : TSoundLiteCodecType;
   aProps : ISoundProps);
 begin
-  inherited Init;
+  inherited InitPlayer;
   if Assigned(FramedSource) then
   begin
     FramedSource.Init(aCodec, aProps);
@@ -2593,6 +3202,24 @@ constructor TSLPlayerThread.Create;
 begin
   inherited Create(true);
   FPlayer := TSLPlayer.Create;
+  FPlayer.InitPlayer;
+  FreeOnTerminate := false;
+end;
+
+constructor TSLPlayerThread.Create(const devicename : String);
+begin
+  inherited Create(true);
+  FPlayer := TSLPlayer.Create;
+  FPlayer.InitPlayer(devicename);
+  FreeOnTerminate := false;
+end;
+
+constructor TSLPlayerThread.Create(const devicename : String; buffers,
+  buffersize : Integer);
+begin
+  inherited Create(true);
+  FPlayer := TSLPlayer.Create;
+  FPlayer.InitPlayer(devicename, buffers, buffersize);
   FreeOnTerminate := false;
 end;
 
@@ -2733,48 +3360,11 @@ end;
 
 { TSLPlayer }
 
-procedure TSLPlayer.SetOnPause(AValue : TSLOnPauseResume);
+procedure TSLPlayer.DoStatusChanged(aNew, aOld : TSLPlayerState);
 begin
-  if FOnPause = AValue then Exit;
-  FOnPause := AValue;
-end;
-
-function TSLPlayer.GetGain : Single;
-begin
-  Lock;
-  try
-    Result := FOALPlayer.Gain;
-  finally
-    UnLock;
-  end;
-end;
-
-procedure TSLPlayer.SetGain(AValue : Single);
-begin
-  Lock;
-  try
-    FOALPlayer.Gain := AValue;
-  finally
-    UnLock;
-  end;
-end;
-
-procedure TSLPlayer.SetOnResume(AValue : TSLOnPauseResume);
-begin
-  if FOnResume = AValue then Exit;
-  FOnResume := AValue;
-end;
-
-procedure TSLPlayer.SetOnStartPlay(AValue : TSLOnStartPlay);
-begin
-  if FOnStartPlay = AValue then Exit;
-  FOnStartPlay := AValue;
-end;
-
-procedure TSLPlayer.SetOnStopPlay(AValue : TSLOnStopPlay);
-begin
-  if FOnStopPlay = AValue then Exit;
-  FOnStopPlay := AValue;
+  FTrackFinished := (FOALPlayer.Stream.PlayedSamples >= (FOALPlayer.Stream.DecodedSamples-1)) and
+                    (FOALPlayer.Stream.PlayedSamples >= (FOALPlayer.Stream.TotalSamples-1));
+  inherited DoStatusChanged(aNew, aOld);
 end;
 
 procedure TSLPlayer.DoClearPlayList;
@@ -2802,30 +3392,20 @@ begin
   end;
 end;
 
-procedure TSLPlayer.DoAddTrack(aTrack : TSLTrackFile);
-begin
-  //
-end;
-
-procedure TSLPlayer.DoAddTracks(aCount : Integer);
-begin
-  //
-end;
-
 constructor TSLPlayer.Create;
 begin
   inherited Create;
-  FLastStatus := slsInvalid;
-  FOALPlayer := TOALPlayer.Create;
-  FOALPlayer.Init;
+  FConsumer := TSLPlaylistConsumer.Create;
+  FConsumer.OnClearPlaylist := @DoClearPlayList;
+  FConsumer.OnDeleteTrack := @DoDeleteTrack;
   FPlayList := TSLPlayList.Create;
-  FPlayList.AddConsumer(Self);
+  FPlayList.AddConsumer(FConsumer);
 end;
 
 destructor TSLPlayer.Destroy;
 begin
   FPlayList.Free;
-  FOALPlayer.Free;
+  FConsumer.Free;
   inherited Destroy;
 end;
 
@@ -2885,166 +3465,12 @@ begin
         FOALPlayer.Play;
         FLastStatus := slsPlaying;
         if Assigned(FOnStartPlay) then
-          FOnStartPlay(Self, FPlayList.CurrentTrack);
+          FOnStartPlay(Self);
       end;
     end;
   finally
     FullUnLock;
   end;
-end;
-
-procedure TSLPlayer.Pause;
-begin
-  Lock;
-  try
-    FOALPlayer.Pause;
-    FLastStatus := slsPaused;
-    if Assigned(FOnPause) then
-      FOnPause(Self, FPlayList.CurrentTrack);
-  finally
-    UnLock;
-  end;
-end;
-
-procedure TSLPlayer.Resume;
-begin
-  Lock;
-  try
-    FOALPlayer.Resume;
-    FLastStatus := slsPlaying;
-    if Assigned(FOnResume) then
-      FOnResume(Self, FPlayList.CurrentTrack);
-  finally
-    UnLock;
-  end;
-end;
-
-procedure TSLPlayer.Stop;
-begin
-  Lock;
-  try
-    FOALPlayer.Stop;
-    FLastStatus := slsStopped;
-    if Assigned(FOnStopPlay) then
-      FOnStopPlay(Self);
-  finally
-    UnLock;
-  end;
-end;
-
-procedure TSLPlayer.SeekTime(aTime : Double);
-begin
-  Lock;
-  try
-    FOALPlayer.SeekTime(aTime);
-  finally
-    UnLock;
-  end;
-end;
-
-procedure TSLPlayer.SeekSample(aSample : Integer);
-begin
-  Lock;
-  try
-    FOALPlayer.SeekSample(aSample);
-  finally
-    UnLock;
-  end;
-end;
-
-function TSLPlayer.PlayedTime : Double;
-begin
-  Lock;
-  try
-    Result := FOALPlayer.PlayedTime;
-  finally
-    UnLock;
-  end;
-end;
-
-function TSLPlayer.PlayedSamples : Integer;
-begin
-  Lock;
-  try
-    Result := FOALPlayer.PlayedSamples;
-  finally
-    UnLock;
-  end;
-end;
-
-function TSLPlayer.DecodedTime : Double;
-begin
-  Lock;
-  try
-    Result := FOALPlayer.DecodedTime;
-  finally
-    UnLock;
-  end;
-end;
-
-function TSLPlayer.DecodedSamples : Integer;
-begin
-  Lock;
-  try
-    Result := FOALPlayer.DecodedSamples;
-  finally
-    UnLock;
-  end;
-end;
-
-function TSLPlayer.Status : TSLPlayerState;
-var
-  aCurStatus : TSLPlayerState;
-begin
-  Lock;
-  try
-    aCurStatus := TSLPlayerState(FOALPlayer.Status);
-    Result := aCurStatus;
-    if aCurStatus <> FLastStatus then
-    begin
-      case aCurStatus of
-       slsPlaying : begin
-         if FLastStatus = slsPaused then
-         begin
-           if Assigned(FOnResume) then
-             FOnResume(Self, Playlist.CurrentTrack);
-         end else
-         begin
-           if Assigned(FOnStartPlay) then
-             FOnStartPlay(Self, Playlist.CurrentTrack);
-         end;
-       end;
-       slsPaused : begin
-         if Assigned(FOnPause) then
-           FOnPause(Self,  Playlist.CurrentTrack);
-       end;
-       slsStopped : begin
-         FTrackFinished := (FOALPlayer.Stream.PlayedSamples >= (FOALPlayer.Stream.DecodedSamples-1)) and
-                           (FOALPlayer.Stream.PlayedSamples >= (FOALPlayer.Stream.TotalSamples-1));
-         if Assigned(FOnStopPlay) then
-           FOnStopPlay(Self);
-       end;
-      end;
-      FLastStatus := aCurStatus;
-    end;
-  finally
-    UnLock;
-  end;
-end;
-
-function TSLPlayer.Playing : Boolean;
-begin
-  Result := Status = slsPlaying;
-end;
-
-function TSLPlayer.Paused : Boolean;
-begin
-  Result := Status = slsPaused;
-end;
-
-function TSLPlayer.Stopped : Boolean;
-begin
-  Result := Status = slsStopped;
 end;
 
 procedure TSLPlayer.Proceed;
@@ -4796,6 +5222,18 @@ class function TSoundLite.NewSpeexResampler(aProps : ISoundProps
   ) : ISoundResampler;
 begin
   Result := TSoundSpeexResampler.Create(aProps);
+end;
+
+class function TSoundLite.NewForwardFFT(aSampleCount, aChannels : Cardinal
+  ) : ISoundForwardTransformation;
+begin
+  Result := TSoundForwardFFT.Create(aSampleCount, aChannels);
+end;
+
+class function TSoundLite.NewBackwardFFT(aSampleCount, aChannels : Cardinal
+  ) : ISoundBackwardTransformation;
+begin
+  Result := TSoundBackwardFFT.Create(aSampleCount, aChannels);
 end;
 
 var i : TSoundLiteComponent;
