@@ -12,7 +12,7 @@
     </CompilerOptions>
     <Description Value="A set of classes for playing, recording and converting audio files and audio streams. Uses the principles of dynamic linking of libraries. Supports audio formats FLAC, Vorbis and Opus (including for the organization of streaming audio frames)."/>
     <License Value="LGPL v2.1"/>
-    <Version Minor="7"/>
+    <Version Minor="7" Release="2"/>
     <Files>
       <Item>
         <Filename Value="oglsoundlite.pas"/>
