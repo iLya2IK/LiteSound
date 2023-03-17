@@ -11,6 +11,7 @@ A set of classes for playing, recording and converting audio files and audio str
 * Resampler - This example demonstrates the operation of a simple speex resampler.
 * fft - This example demonstrates the operation of a simple fast discrete Fourier transform and inverse. 
 * Spectre - This example shows a visualization of a fast discrete Fourier transform for an audio stream using OpenGL.
+* WCRadioClient example - An example of the implementation of an Internet radio source and receiver.
  
 ### Requirements
 
@@ -23,6 +24,8 @@ A set of classes for playing, recording and converting audio files and audio str
 * [libFLAC_ilya2ik - free pascal bindings and wrapper around FLAC library](https://github.com/iLya2IK/libFLAC_litedyn) 
 * [libVorbis_ilya2ik - free pascal bindings and wrapper around Vorbis library](https://github.com/iLya2IK/libVorbis_litedyn) 
 * [libOpus_ilya2ik - free pascal bindings and wrapper around Opus library](https://github.com/iLya2IK/libOpus_litedyn) 
+* [HTTP2 Web Camera Client](https://github.com/iLya2IK/wccurlclient) (optional / for WCRadioClient example)
+* [REST Web Camera server](https://github.com/iLya2IK/wcwebcamserver) (optional / for WCRadioClient example)
 
 ### Third party
 
@@ -31,7 +34,7 @@ A set of classes for playing, recording and converting audio files and audio str
 * [libFLAC](https://xiph.org/flac/download.html)
 * [Vorbis/VorbisEnc/VorbisFile](https://xiph.org/vorbis/)
 * [Opus/OpusEnc/OpusFile](https://opus-codec.org/downloads/)
-* [OpenGL v3.3](optional - for Spectre example)
+* [OpenGL v3.3](https://www.opengl.org/)(optional - for Spectre example)
 
 ### Installation
 

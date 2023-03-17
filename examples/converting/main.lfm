@@ -94,7 +94,8 @@ object Form1: TForm1
         'FLAC OGG'
         'Opus OGG'
         'Vorbis OGG'
-        'RIFF WAVE'
+        'WAVE RIFF'
+        'WAVE OGG'
       )
       Style = csDropDownList
       TabOrder = 2

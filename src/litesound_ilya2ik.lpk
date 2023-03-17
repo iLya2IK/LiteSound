@@ -22,6 +22,10 @@
         <Filename Value="oglriffwavewrapper.pas"/>
         <UnitName Value="OGLRIFFWaveWrapper"/>
       </Item>
+      <Item>
+        <Filename Value="playercontrols.pas"/>
+        <UnitName Value="PlayerControls"/>
+      </Item>
     </Files>
     <RequiredPkgs>
       <Item>

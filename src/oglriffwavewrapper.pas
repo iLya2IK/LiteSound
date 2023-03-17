@@ -1,3 +1,15 @@
+{
+  OGLRIFFWaveWrapper - part of LiteSound_iLya2IK
+   Encoders, decoders, interfaces for working with audio files in the RIFF WAVE
+   and OGG WAVE audio formats.
+
+   Copyright (c) 2023 by Ilya Medvedkov
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+}
+
 unit OGLRIFFWaveWrapper;
 
 {$mode objfpc}{$H+}

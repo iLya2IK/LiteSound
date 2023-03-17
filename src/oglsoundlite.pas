@@ -160,9 +160,20 @@ type
     property TotalDuration : ISoundFrameSize read GetTotalDuration;
   end;
 
+  { TSLStreamDataSource }
+
+  TSLStreamDataSource = class(TOALStreamDataSource)
+  private
+    function GetChannels : Cardinal;
+    function GetSampleSize : TSoundSampleSize;
+  public
+    property Channels : Cardinal read GetChannels;
+    property SampleSize : TSoundSampleSize read GetSampleSize;
+  end;
+
   { TSLFramedDataSource }
 
-  TSLFramedDataSource = class(TOALStreamDataSource)
+  TSLFramedDataSource = class(TSLStreamDataSource)
   private
     FInputFrames         : TThreadSafeFastSeq;
     FCurFrame            : TSLAudioFrame;
@@ -187,6 +198,9 @@ type
     function  Empty : Boolean;
     function  Cached : Boolean;
     function  Starving : Boolean;
+
+    function  AccumDuration : ISoundFrameSize;
+    function  Decoder : TSLFramedDecoder;
 
     function ReadChunk(const Buffer : Pointer;
                          {%H-}Pos : Int64;
@@ -525,7 +539,7 @@ type
 
   { TSLTrackDataSource }
 
-  TSLTrackDataSource = class(TOALStreamDataSource)
+  TSLTrackDataSource = class(TSLStreamDataSource)
   private
     FStream : TSLTrackFile;
     FOwnFile : Boolean;
@@ -1140,6 +1154,18 @@ const
   {ecFILE_NOT_ACTIVATED}     'File is not activated.',
   {ecCAN_NOT_ACTIVATE}       'Can''t activate this track.',
   {ecWRONG_CAPTURE_SRC}      'Incorrect capture source - must be a descendant class of TSLFileDataRecorder.');
+
+{ TSLStreamDataSource }
+
+function TSLStreamDataSource.GetChannels : Cardinal;
+begin
+  Result := TOpenAL.OALFormatToChannels(Format);
+end;
+
+function TSLStreamDataSource.GetSampleSize : TSoundSampleSize;
+begin
+  Result := TOGLSound.BitdepthToSampleSize(TOpenAL.OALFormatToBitsPerSample(Format));
+end;
 
 { TSLCustomPlayer }
 
@@ -1899,14 +1925,21 @@ begin
   if Assigned(aFrame) then
   begin
     FFramedDecoder.DataSource := aFrame;
-    aDecoded := FFramedDecoder.DecodeAllData(nil);
-    if aDecoded.IsValid then
-    begin
-      if Assigned(FAccumDuration) then
-        FAccumDuration.Inc(aDecoded) else
-        FAccumDuration := aDecoded;
-      if FFramedDecoder.DecodedFrames.Count > MaxFramesCount then
-        FFramedDecoder.DecodedFrames.Erase(FFramedDecoder.DecodedFrames.ListBegin);
+    try
+      aDecoded := FFramedDecoder.DecodeAllData(nil);
+      if aDecoded.IsValid then
+      begin
+        if Assigned(FAccumDuration) then
+          FAccumDuration.Inc(aDecoded) else
+          FAccumDuration := aDecoded;
+        if FFramedDecoder.DecodedFrames.Count > MaxFramesCount then
+        begin
+          FAccumDuration.Dec(FFramedDecoder.DecodedFrames.FirstValue.FrameSize);
+          FFramedDecoder.DecodedFrames.Erase(FFramedDecoder.DecodedFrames.ListBegin);
+        end;
+      end;
+    finally
+      aFrame.Free;
     end;
   end;
 end;
@@ -1936,6 +1969,16 @@ begin
   if Assigned(FAccumDuration) and FAccumDuration.IsValid then
     Result := FAccumDuration.AsDurationMs < FMaxFrameBufferingStarveMs else
     Result := true;
+end;
+
+function TSLFramedDataSource.AccumDuration : ISoundFrameSize;
+begin
+  Result := FAccumDuration;
+end;
+
+function TSLFramedDataSource.Decoder : TSLFramedDecoder;
+begin
+  Result := FFramedDecoder;
 end;
 
 function TSLFramedDataSource.ReadChunk(const Buffer : Pointer; Pos : Int64;

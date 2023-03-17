@@ -1,0 +1,3 @@
+[submodule "examples/wcRadioClient"]
+	path = examples/wcRadioClient
+	url = https://github.com/iLya2IK/wcRadioClient

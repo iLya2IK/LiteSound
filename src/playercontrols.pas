@@ -1,4 +1,14 @@
-unit playercontrols;
+{
+  PlayerControls - part of SoundUtils_iLya2IK:
+
+   Copyright (c) 2023 by Ilya Medvedkov
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+}
+
+unit PlayerControls;
 
 {$mode ObjFPC}{$H+}
 
@@ -7,7 +17,7 @@ interface
 uses
   Classes, SysUtils, Controls, ComCtrls, Grids, Graphics,
   LCLType, LCLIntf, Themes,
-  OGLSoundLite;
+  OGLSoundLite, OGLSoundUtils, OGLSoundUtilTypes;
 
 type
 
@@ -21,7 +31,10 @@ type
     FOnTrackSelect : TOnTrackSelect;
     FPlayList      : TSLPlayList;
     FState         : TSLPlayerState;
+    FImageIndex    : Array [TSLPlayerState] of Integer;
+    function GetImageIndex(state : TSLPlayerState) : integer;
     function GetRowTrack : Integer;
+    procedure SetImageIndex(state : TSLPlayerState; AValue : integer);
     procedure SetImageList(AValue : TImageList);
     procedure SetOnTrackSelect(AValue : TOnTrackSelect);
     procedure SetPlayList(AValue : TSLPlayList);
@@ -44,6 +57,8 @@ type
     property PlayState : TSLPlayerState read FState write SetPlayState;
     property RowTrack : Integer read GetRowTrack write SetRowTrack;
     property OnTrackSelect : TOnTrackSelect read FOnTrackSelect write SetOnTrackSelect;
+
+    property ImageIndex[state : TSLPlayerState] : integer read GetImageIndex write SetImageIndex;
   end;
 
   TOnSelectTime = procedure (Sender : TObject; aValue : Double) of object;
@@ -113,6 +128,8 @@ type
     constructor Create(AOwner: TComponent); override;
 
     function AddComment(const aTagName, aTagValue: string) : TTreeNode;
+    procedure ShowComments(fComments : ISoundComment; aExpandAll : Boolean);
+    procedure ShowTrackInfo(fTrack : TSLTrackFile; aExpandAll : Boolean);
   end;
 
 resourcestring
@@ -120,6 +137,8 @@ resourcestring
   STrackNo     = 'Track no';
   STitle       = 'Title';
   STotalTime   = 'Duration';
+  SVendor      = 'Vendor';
+  SCodec       = 'Codec';
 
 implementation
 
@@ -356,6 +375,77 @@ function TMetaView.AddComment(const aTagName, aTagValue : string) : TTreeNode;
 begin
   Result := Items.AddChild(nil, aTagName + ': ' + aTagValue);
   Result.Data := TCommentRec.Create(aTagName, aTagValue);
+end;
+
+procedure TMetaView.ShowComments(fComments : ISoundComment; aExpandAll : Boolean);
+var
+  PNODE : TTreeNode;
+  TC, i, j, QC : Integer;
+  TN, S, TNC : String;
+begin
+  BeginUpdate;
+  try
+    Items.Clear;
+    TC := fComments.TagsCount;
+    for i := 0 to TC-1 do
+    begin
+      TN := fComments.GetTag(i);
+      TNC := TOGLSoundComments.GetByID(TN)^.TagName;
+      QC := fComments.QueryCount(TN);
+      if QC = 1 then
+      begin
+        S := fComments.Query(TN, 0);
+        AddComment(TNC, S);
+      end else
+      begin
+        PNODE := Items.AddChild(nil, TNC);
+        for j := 0 to QC-1 do
+        begin
+          S := fComments.Query(TN, j);
+          Items.AddChild(PNODE, S);
+        end;
+      end;
+    end;
+    TN := SVendor;
+    S := fComments.Vendor;
+    if Length(S) > 0 then
+      AddComment(TN, S);
+
+    if aExpandAll then
+      FullExpand;
+  finally
+    EndUpdate;
+  end;
+end;
+
+procedure TMetaView.ShowTrackInfo(fTrack : TSLTrackFile; aExpandAll : Boolean);
+var
+  TN, S : String;
+  C : ISoundComment;
+begin
+  BeginUpdate;
+  try
+    Items.Clear;
+    C := fTrack.FileInfo.Comments;
+    if Assigned(C) then
+    begin
+      ShowComments(C, false);
+    end;
+
+    TN := SCodec;
+    S := TSoundLite.CodecName(fTrack.FileInfo.CodecType);
+    if Length(S) > 0 then
+      AddComment(TN, S);
+    TN := STotalTime;
+    S := TSoundLite.TimeToStr(fTrack.GetTotalTime);
+    if Length(S) > 0 then
+      AddComment(TN, S);
+
+    if aExpandAll then
+      FullExpand;
+  finally
+    EndUpdate;
+  end;
 end;
 
 function TMetaView.GetIndent : Integer;
@@ -609,6 +699,16 @@ begin
   Result := Row - 1;
 end;
 
+function TPlayListGrid.GetImageIndex(state : TSLPlayerState) : integer;
+begin
+  Result := FImageIndex[state];
+end;
+
+procedure TPlayListGrid.SetImageIndex(state : TSLPlayerState; AValue : integer);
+begin
+  FImageIndex[state] := AValue;
+end;
+
 procedure TPlayListGrid.DrawCell(aCol, aRow : Integer; aRect : TRect;
   aState : TGridDrawState);
 var
@@ -664,13 +764,7 @@ begin
       begin
         if ((aRow - 1) = FPlaylist.PlayPosition) and (aRow > 0) then
         begin
-          case FState of
-            slsPlaying : imi := 0;
-            slsStopped : imi := 1;
-            slsPaused  : imi := 2;
-          else
-            imi := -1;
-          end;
+          imi := FImageIndex[FState];
           if imi >= 0 then
             DrawPic(imi);
         end;
@@ -742,6 +836,8 @@ begin
 end;
 
 constructor TPlayListGrid.Create(AOwner : TComponent);
+var
+  st : TSLPlayerState;
 begin
   inherited Create(AOwner);
   Options := [goVertLine,goHorzLine,goRowSelect,goSmoothScroll];
@@ -758,6 +854,13 @@ begin
   Cells[2, 0] := STrackNo;
   Cells[3, 0] := STitle;
   Cells[4, 0] := STotalTime;
+
+  for st := low(TSLPlayerState) to high(TSLPlayerState) do
+    FImageIndex[st] := -1;
+
+  FImageIndex[slsPlaying] := 0;
+  FImageIndex[slsStopped] := 1;
+  FImageIndex[slsPaused]  := 2;
 end;
 
 procedure TPlayListGrid.UpdatePlayList;

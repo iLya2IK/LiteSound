@@ -101,6 +101,7 @@ begin
       2 : aCodecType := CODEC_OGG_OPUS;
       3 : aCodecType := CODEC_OGG_VORBIS;
       4 : aCodecType := CODEC_WAV;
+      5 : aCodecType := CODEC_OGG_WAV;
     end;
 
     case aCodecType of

@@ -8,7 +8,7 @@ unit litesound_ilya2ik;
 interface
 
 uses
-  OGLSoundLite, OGLRIFFWaveWrapper, LazarusPackageIntf;
+  OGLSoundLite, OGLRIFFWaveWrapper, PlayerControls, LazarusPackageIntf;
 
 implementation
 

@@ -76,7 +76,7 @@ type
     procedure Timer1Timer(Sender : TObject);
     procedure VolumeControlChange(Sender : TObject);
   private
-    FPlayer : TSLPlayer;
+    FPlayer       : TSLPlayer;
     FPlayerThread : TSLPlayerThread;
     FPlayListGrid : TPlayListGrid;
     FMetaView     : TMetaView;
