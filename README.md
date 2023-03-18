@@ -5,13 +5,19 @@ A set of classes for playing, recording and converting audio files and audio str
 ### Examples
 
 * Player example - This example emulates the operation of a simple audio player, demonstrates working with comments, metadata, playlists.
+![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_144642.png?raw=true)
 * Recorder example - This example emulates the operation of a simple audio recorder.
+![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_144908.png?raw=true)
 * Converter example - This example emulates the operation of a simple audio file converter.
+![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145047.png?raw=true)
 * FrameStreaming example - In this example, an audio-ogg file is opened and decoded into a data stream. The resulting stream is then re-encoded into a set of encoded frames. A set of encoded frames is saved to the files on disk in the user's format. Frame-files are then opened, decoded into a data stream and saved in a new file in selected format.
 * Resampler - This example demonstrates the operation of a simple speex resampler.
 * fft - This example demonstrates the operation of a simple fast discrete Fourier transform and inverse. 
 * Spectre - This example shows a visualization of a fast discrete Fourier transform for an audio stream using OpenGL.
+![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145201.png?raw=true)
 * WCRadioClient example - An example of the implementation of an Internet radio source and receiver.
+![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145652.png?raw=true)
+![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145730.png?raw=true)
  
 ### Requirements
 

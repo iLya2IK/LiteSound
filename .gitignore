@@ -34,3 +34,4 @@
 *.7z
 *.png
 *.trc
+!/examples/screenshots/*.png
