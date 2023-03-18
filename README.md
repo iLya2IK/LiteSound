@@ -4,20 +4,38 @@ A set of classes for playing, recording and converting audio files and audio str
 
 ### Examples
 
-* Player example - This example emulates the operation of a simple audio player, demonstrates working with comments, metadata, playlists.
-![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_144642.png?raw=true)
-* Recorder example - This example emulates the operation of a simple audio recorder.
-![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_144908.png?raw=true)
-* Converter example - This example emulates the operation of a simple audio file converter.
-![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145047.png?raw=true)
-* FrameStreaming example - In this example, an audio-ogg file is opened and decoded into a data stream. The resulting stream is then re-encoded into a set of encoded frames. A set of encoded frames is saved to the files on disk in the user's format. Frame-files are then opened, decoded into a data stream and saved in a new file in selected format.
-* Resampler - This example demonstrates the operation of a simple speex resampler.
-* fft - This example demonstrates the operation of a simple fast discrete Fourier transform and inverse. 
-* Spectre - This example shows a visualization of a fast discrete Fourier transform for an audio stream using OpenGL.
-![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145201.png?raw=true)
-* WCRadioClient example - An example of the implementation of an Internet radio source and receiver.
-![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145652.png?raw=true)
-![Player example](https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145730.png?raw=true)
+<table font-style="normal">
+<tr>
+<td text-align="left">Player example - This example emulates the operation of a simple audio player, demonstrates working with comments, metadata, playlists.</td>
+<td><img alt="Player example" src="https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_144642.png?raw=true"></td>
+</tr>
+<tr>
+<td text-align="left">Recorder example - This example emulates the operation of a simple audio recorder.</td>
+<td><img alt="Recorder example" src="https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_144908.png?raw=true"></td>
+</tr>
+<tr>
+<td text-align="left">Converter example - This example emulates the operation of a simple audio file converter.</td>
+<td><img alt="Converter example" src="https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145047.png?raw=true"></td>
+</tr>
+<tr>
+<td text-align="left">FrameStreaming example - In this example, an audio-ogg file is opened and decoded into a data stream. The resulting stream is then re-encoded into a set of encoded frames. A set of encoded frames is saved to the files on disk in the user's format. Frame-files are then opened, decoded into a data stream and saved in a new file in selected format.</td>
+</tr>
+<tr>
+<td text-align="left">Resampler - This example demonstrates the operation of a simple speex resampler.</td>
+</tr>
+<tr>
+<td text-align="left">fft - This example demonstrates the operation of a simple fast discrete Fourier transform and inverse.</td>
+</tr>
+<tr>
+<td text-align="left">Spectre - This example shows a visualization of a fast discrete Fourier transform for an audio stream using OpenGL.</td>
+<td><img alt="Spectre example" src="https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145201.png?raw=true"></td>
+</tr>
+<tr>
+<td text-align="left">WCRadioClient example - An example of the implementation of an Internet radio source and receiver.</td>
+<td><img alt="WCRadioClient emmiter example" src="https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145652.png?raw=true"><img alt="WCRadioClient listener example" src="https://github.com/iLya2IK/LiteSound/blob/main/examples/screenshots/Screenshot_20230318_145730.png?raw=true"></td>
+</tr>
+</table>
+
  
 ### Requirements
 
@@ -40,7 +58,7 @@ A set of classes for playing, recording and converting audio files and audio str
 * [libFLAC](https://xiph.org/flac/download.html)
 * [Vorbis/VorbisEnc/VorbisFile](https://xiph.org/vorbis/)
 * [Opus/OpusEnc/OpusFile](https://opus-codec.org/downloads/)
-* [OpenGL v3.3](https://www.opengl.org/)(optional - for Spectre example)
+* [OpenGL v3.3](https://www.opengl.org/) (optional - for Spectre example)
 
 ### Installation
 
